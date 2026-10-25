@@ -1,0 +1,976 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cloud Matcha</title>
+<meta name="description" content="Cloud Matcha — strawberry matcha from Japan, 25 flavours. Opening soon on Druzhby Narodov Ul., bld. 23.">
+<meta name="theme-color" content="#21380f">
+<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Angkor&family=DM+Serif+Display&family=Inter:wght@300;500&display=swap">
+<style>
+/* Layout: one fixed 1920×1080 stage per scene, scaled to fit the viewport; scenes travel vertically, the cup lives on its own layer above both. */
+:root{
+  --cream:#faf5e1;      /* hero paper */
+  --mist:#f6f0dc;       /* parallax gap / letterbox tone */
+  --ink:#21380f;        /* matcha ink */
+  --ink-2:#223810;
+  --nav:#292a2d;
+  --berry:#fd5767;      /* strawberry headline */
+  --night-top:#141f0c;  /* intro letterbox, sampled from the video */
+  --night-bot:#404a25;
+  --f-display:"Angkor", "Rockwell Extra Bold", Georgia, serif;
+  --f-num:"DM Serif Display", Georgia, serif;
+  --f-body:"Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+html,body{height:100%;margin:0;background:var(--night-top);overflow:hidden}
+/* letterbox outside the 16:9 frame follows the active scene (tweened in script) */
+body{font-family:var(--f-body);-webkit-font-smoothing:antialiased}
+/* the design frame: always 1920×1080 proportions, scaled uniformly, centred, clipped */
+.vp{position:fixed;left:50%;top:50%;width:calc(var(--W,1920px) * var(--s,1));height:calc(var(--H,1080px) * var(--s,1));transform:translate(-50%,-50%);overflow:hidden}
+.wrap{position:absolute;inset:0;overflow:hidden}
+.stage{position:absolute;left:0;top:0;width:var(--W,1920px);height:var(--H,1080px);transform-origin:0 0;transform:scale(var(--s,1))}
+#hero{background:var(--mist);transform:translateY(100%)}
+#hero .wrap-in{position:absolute;inset:0}
+#intro{background:linear-gradient(var(--night-top),var(--night-bot))}
+#cupWrap{pointer-events:none;overflow:visible}
+#heroStage,#introStage,#cupStage{overflow:hidden}
+/* desktop fill: stage keeps its 1920×1080 design coordinates, shifted so the extra room lies at the sides (--ox)
+   or on top (--oy); scenery layers widen proportionally, edge-anchored UI follows the window edges */
+html:not(.m) .stage{width:1920px;height:1080px;transform:scale(var(--s,1)) translate(var(--ox,0px),var(--oy,0px));overflow:visible}
+html:not(.m) #heroStage,html:not(.m) #introStage,html:not(.m) #cupStage{overflow:visible}
+html:not(.m) #intro video,html:not(.m) #intro .plate,html:not(.m) #first,html:not(.m) #seqCv{left:var(--dvx);top:var(--dvy);width:var(--dvw);height:var(--dvh)}
+html:not(.m) #sky{top:calc(-1 * var(--oy,0px))}
+html:not(.m) #sky img.d,html:not(.m) #mid img,html:not(.m) #front img.d{width:calc(1920px * var(--kx,1));height:auto;margin-left:calc(-1 * var(--ox,0px));max-width:none}
+html:not(.m) #pagoda{left:calc(1660px * var(--kx,1) - var(--ox,0px));top:calc(480px + 60px * var(--kx,1))}
+html:not(.m) #pagoda img{width:calc(190px * var(--kx,1));height:auto}
+html:not(.m) #sun{left:calc(1552px * var(--kx,1) - var(--ox,0px));top:calc(480px + 200px * var(--kx,1))}
+html:not(.m) #mist1{left:calc(-200px - var(--ox,0px))}html:not(.m) #mist2{left:calc(900px + var(--ox,0px))}
+html:not(.m) .leftfade{left:calc(-1 * var(--ox,0px))}
+html:not(.m) #logo{left:calc(49px - var(--ox,0px));top:calc(20px - var(--oy,0px))}
+html:not(.m) #nav{top:calc(32px - var(--oy,0px))}
+html:not(.m) #topR{left:calc(1656px + var(--ox,0px));top:calc(22px - var(--oy,0px))}
+html:not(.m) #info{left:calc(1651px + var(--ox,0px))}
+html:not(.m) #roofG{left:calc(-1 * var(--ox,0px))}
+html:not(.m) #bl{left:calc(49px - var(--ox,0px))}
+html:not(.m) #stoneG{left:calc(687px + var(--ox,0px))}
+html:not(.m) #cupBox{left:calc(996px + var(--ox,0px))}
+html:not(.m) #shadow{left:calc(1242px + var(--ox,0px))}
+
+/* intro */
+#intro video,#intro .plate,#first,#seqCv{position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:fill;display:block}
+#intro .plate{opacity:0}
+#seqCv{opacity:0}
+#introIn{position:absolute;inset:0;transform-origin:50% 40%}
+#intro .vignette{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 45%,transparent 55%,rgba(8,14,4,.45));pointer-events:none}
+
+/* hero layers (stage px) */
+.L{position:absolute;left:0;will-change:transform}
+.L img{display:block}
+/* stage art is sized in stage px on purpose: opt out of the page-wide img{max-width:100%} rule,
+   which otherwise caps the full-bleed landscape at its container width and leaves a gap at the right */
+.stage img{max-width:none}
+#sky{top:0}
+#mid{top:480px}
+#pagoda{left:1660px;top:540px}
+#front{top:840px}
+#sun{position:absolute;left:1552px;top:680px;width:0;height:0}
+#sun i{position:absolute;left:-260px;top:-260px;width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,196,186,.55) 0%,rgba(255,214,200,.28) 30%,rgba(255,230,214,0) 62%);opacity:0}
+.mist{position:absolute;top:640px;height:300px;width:1400px;opacity:0;pointer-events:none;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(252,249,238,.85),rgba(252,249,238,0) 70%);filter:blur(6px)}
+#mist1{left:-200px}#mist2{left:900px;top:720px;width:1200px;height:240px}
+.leftfade{position:absolute;left:0;top:0;width:561px;height:1080px;background:linear-gradient(to right,#f7f1dc,rgba(247,241,220,0))}
+
+#matchaMask{position:absolute;left:894px;top:126px;overflow:hidden;padding:0 30px 40px 0;clip-path:inset(0 0 0 0)}
+#matcha{margin:0;font:400 250px/0.86 var(--f-display);letter-spacing:-20px;color:var(--ink-2);text-transform:lowercase;white-space:nowrap}
+#matchaIn{position:relative}
+/* liquid fill: a copy of the word whose background (wave + body in the word's own colour) is clipped to the glyphs */
+.liq{position:absolute;padding:40px 30px 40px 0;white-space:nowrap;pointer-events:none;display:none;
+  color:transparent;-webkit-text-fill-color:transparent;-webkit-background-clip:text;background-clip:text;background-repeat:repeat-x}
+#matchaLiquid{left:0;top:-40px;font:400 250px/0.86 var(--f-display);letter-spacing:-20px;text-transform:lowercase}
+#cloudG{position:absolute;left:174px;top:254px}
+#cloudG .cm-crisp{position:relative;padding:80px}
+#cloudWord{margin:0;font:400 264px/0.86 var(--f-display);letter-spacing:-21.12px;color:var(--berry);white-space:nowrap}
+#cloudMorph{position:absolute;left:-10px;top:-10px;width:931px;height:408px;pointer-events:none;visibility:hidden}
+#cloudWord .wl{display:inline-block;transform-origin:50% 62%;will-change:transform}
+
+#stoneG{position:absolute;left:687px;top:669px;width:1233px;height:411px;transform-origin:50% 100%}
+#stoneG img{position:absolute;display:block}
+#stone{left:0;top:0;width:1233px;height:411px}
+#leaves{left:711px;top:97px;transform-origin:80px 166px}
+#leaf2{left:992px;top:295px;transform-origin:14px 40px}
+#stoneSheen{position:absolute;inset:0;pointer-events:none;mix-blend-mode:soft-light;opacity:.0;
+  background:linear-gradient(100deg,transparent 35%,rgba(255,255,240,.9) 50%,transparent 65%) no-repeat;background-size:40% 100%;background-position:-60% 0;
+  -webkit-mask:url(img/stone.webp) 0 0/100% 100% no-repeat;mask:url(img/stone.webp) 0 0/100% 100% no-repeat}
+
+.ui{position:absolute}
+#nav{left:575px;top:32px;display:flex;gap:78px;align-items:center;font:500 20px/0.86 var(--f-body);letter-spacing:-1.6px;text-transform:uppercase;color:var(--nav)}
+#nav a,#cart{color:inherit;text-decoration:none}
+#loc{left:573px;top:269px;width:292px;display:flex;flex-direction:column;gap:8px;color:var(--ink);font-size:20px;line-height:.9;letter-spacing:-1.2px;text-transform:uppercase;white-space:nowrap}
+#loc b{font:400 20px/.9 var(--f-display);letter-spacing:-1.2px}
+#loc span{font-weight:500}
+#topR{left:1656px;top:22px;display:flex;gap:40px;align-items:center}
+#cart{font:500 20px/.86 var(--f-body);letter-spacing:-1.6px;text-transform:uppercase;color:var(--nav);white-space:nowrap}
+.soc{display:flex;gap:6px}
+.soc a{width:45px;height:45px;border-radius:22.5px;background:var(--ink);display:flex;align-items:center;justify-content:center}
+#info{left:1651px;top:487px;width:219px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;font:500 20px/.9 var(--f-body);letter-spacing:-1.2px;text-transform:uppercase;color:var(--ink);white-space:nowrap}
+#bl{left:49px;top:702px;width:409px;display:flex;flex-direction:column;gap:46px;align-items:flex-start}
+#soon{margin:0;font:400 32px/.86 var(--f-display);letter-spacing:-2.56px;color:var(--ink);text-transform:lowercase}
+#count{display:flex;gap:28px;align-items:center;color:var(--ink)}
+.cu{display:flex;flex-direction:column;gap:14px;align-items:center;text-transform:lowercase;line-height:.86}
+.cu .n{font:400 56px/.86 var(--f-num);letter-spacing:-4.48px;text-align:center;font-variant-numeric:tabular-nums}
+.cu .u{font:300 32px/.86 var(--f-body);letter-spacing:-2.56px;white-space:nowrap}
+.cu:first-child .u{align-self:stretch}
+.div{width:1px;height:41px;background:var(--ink);transform-origin:50% 50%}
+#btn{position:relative;box-sizing:border-box;width:409px;height:73px;border-radius:100px;background:var(--ink);border:2px solid var(--ink);
+  display:flex;gap:211px;align-items:center;justify-content:center;padding:12px;color:#fff;text-decoration:none;
+  font:500 20px/1.45 var(--f-body);letter-spacing:-2px;text-transform:uppercase;white-space:nowrap;clip-path:inset(0 0 0 0 round 100px)}
+#btn:focus-visible,#nav a:focus-visible,.soc a:focus-visible{outline:3px solid var(--berry);outline-offset:4px}
+#btn svg{display:block;width:40px;height:40px}
+#roofG{position:absolute;left:0;top:67px;width:675px;height:747px}
+#roof{position:absolute;left:0;top:0;display:block}
+#lantern{position:absolute;left:92.5px;top:314.9px;width:111.1px;height:257px;transform-origin:50% 0}
+#lantern img{width:100%;height:100%;display:block}
+#lanternGlow{position:absolute;left:-80px;top:40px;width:270px;height:220px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(255,214,150,.38),rgba(255,214,150,0));pointer-events:none}
+#logo{left:49px;top:20px;display:flex;align-items:flex-start;gap:6px;text-decoration:none}
+#logo svg{display:block;width:41px;height:42px}
+#logo span{font:400 28px/.86 var(--f-display);letter-spacing:-2.24px;color:var(--ink);margin-top:10px;text-transform:lowercase}
+
+/* cup */
+#cupBox{position:absolute;left:996px;top:341px;width:489px;height:733px;transform-origin:0 0;opacity:0;will-change:transform;z-index:2}
+.leaf{position:absolute;left:0;top:0;display:block;opacity:0;pointer-events:none;will-change:transform;transform-origin:50% 50%;margin:0;max-width:none}
+#leafA{width:120px;height:102px;margin:-51px 0 0 -60px}#leafB{width:96px;height:67px;margin:-33px 0 0 -48px}#leafC{width:84px;height:106px;margin:-53px 0 0 -42px}
+#cupIn{position:absolute;inset:0;transform-origin:50% 90.7%}
+#cupIn img{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cupFx{position:absolute;inset:0;pointer-events:none;
+  -webkit-mask:url(img/cup.webp) 0 0/100% 100% no-repeat;mask:url(img/cup.webp) 0 0/100% 100% no-repeat}
+#cupSheen{mix-blend-mode:screen;opacity:0;
+  background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.55) 50%,transparent 60%) no-repeat;background-size:60% 100%;background-position:-120% 0}
+.drop{position:absolute;width:7px;height:9px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;
+  background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.95) 0 18%,rgba(255,255,255,.25) 40%,rgba(30,60,20,.18) 75%,transparent 80%);opacity:0}
+#shadow{position:absolute;left:1242px;top:1001px;width:0;height:0;opacity:0}
+#shadow i{position:absolute;border-radius:50%}
+#shadow .s1{left:-170px;top:-20px;width:340px;height:40px;background:radial-gradient(closest-side,rgba(28,36,14,.42),rgba(28,36,14,0));filter:blur(4px)}
+#shadow .s2{left:-108px;top:-7px;width:216px;height:14px;background:radial-gradient(closest-side,rgba(20,26,10,.55),rgba(20,26,10,0))}
+
+/* ===== mobile (portrait) composition: 940px-wide stage from the mobile reference =====
+   --dy = extra stage height on phones taller than 940×1672; the lower group is anchored to the bottom */
+.mo{display:none}
+html.m .d{display:none}
+html.m .mo{display:block}
+.L img.mo,#stoneG img.mo{display:none}
+html.m .L img.mo,html.m #stoneG img.mo{display:block}
+html.m .L img.d,html.m #stone,html.m #leaves,html.m #leaf2{display:none}
+html.m #hero{background:#f4edd9}
+html.m .stage{width:940px;transform:scale(var(--s,1)) translateX(var(--dx,0px))}
+html.m #heroStage,html.m #introStage,html.m #cupStage{overflow:visible}
+html.m #sky img.mo,html.m #front img.mo{width:calc(var(--W) + 48px);height:auto;margin-left:calc(-1 * var(--dx,0px) - 24px)}
+html.m #heroShade{left:calc(-1 * var(--dx,0px) - 24px);right:calc(-1 * var(--dx,0px) - 24px)}
+html.m #mid,html.m #pagoda,html.m #nav,html.m #topR{display:none}
+html.m #sky{top:var(--dy)}
+html.m #front{top:calc(1080px + var(--dy))}
+html.m #sun{left:703px;top:calc(760px + var(--dy))}
+html.m #sun i{left:-200px;top:-200px;width:400px;height:400px}
+html.m #mist1{left:-320px;top:calc(1010px + var(--dy));width:1000px;height:240px}
+html.m #mist2{left:330px;top:calc(1110px + var(--dy));width:900px;height:200px}
+/* mobile intro: the portrait landscape is its own layer; the cup film sits on it where the colours match
+   (its dark top and misty floor line up with the background) and its edges are feathered into it */
+/* mobile intro background (supplied artwork): its own full-bleed layer, scaled with cover and re-anchored per aspect */
+#introBg{position:absolute;left:calc(-1 * var(--dx,0px) - 24px);right:calc(-1 * var(--dx,0px) - 24px);top:-2px;bottom:-2px;
+  background:#1f3013 url(img/mIntroBg2.webp) no-repeat;background-size:cover;background-position:50% var(--bgy,40%)}
+/* phones: the intro is the cut-out cup sequence (transparent frames) floating over the background —
+   the film itself, with its baked-in floor, is not used on mobile */
+html.m #intro video,html.m #first,html.m #intro .plate{display:none}
+html.m #seqCv{left:var(--cx);top:var(--cy);width:var(--cw);height:var(--ch)}
+html.m #intro .vignette{background:radial-gradient(130% 80% at 50% 40%,transparent 60%,rgba(8,14,4,.35))}
+/* header */
+html.m #logo{left:calc(var(--gx) + env(safe-area-inset-left,0px) / var(--s) - var(--dx,0px));top:calc(var(--gt) + env(safe-area-inset-top,0px) / var(--s));gap:10px}
+html.m #logo svg{width:56px;height:57px}
+html.m #logo span{font-size:44px;letter-spacing:-3.5px;margin-top:14px}
+#burger{right:50px;top:46px;left:auto;width:52px;height:34px;padding:0;border:0;background:none;cursor:pointer;flex-direction:column;justify-content:space-between}
+html.m #burger{display:flex;right:calc(var(--gx) + env(safe-area-inset-right,0px) / var(--s) - var(--dx,0px));top:calc(var(--gt) + env(safe-area-inset-top,0px) / var(--s) + 12px)}
+#burger i{display:block;height:4px;border-radius:2px;background:var(--ink)}
+#burger:focus-visible{outline:3px solid var(--berry);outline-offset:6px}
+/* roof + lantern (same asset, 0.87×) */
+#roofS{position:absolute;inset:0;transform-origin:0 0}
+html.m #roofG{left:-38px;top:4px}
+html.m #roofS{transform:scale(.87)}
+/* headlines: same elements, scaled as a whole so their animations stay exact; more air roof→matcha→cloud */
+html.m #matchaMask{left:160px;top:calc(322px + var(--ty));transform:scale(.72);transform-origin:0 0}
+html.m #cloudG{left:110px;top:calc(420px + var(--ty));transform:scale(.72);transform-origin:0 0}
+html.m #loc{left:168px;top:calc(648px + var(--ty));width:auto;gap:9px}
+html.m #loc b{font-size:27px;letter-spacing:-1.4px}
+html.m #loc span{font-size:26px;letter-spacing:-1.3px}
+html.m #info{left:auto;right:calc(var(--gx) + env(safe-area-inset-right,0px) / var(--s) - var(--dx,0px));top:calc(196px + var(--ty) * .5);width:auto;font-size:26px;gap:10px;text-shadow:0 0 10px rgba(246,240,222,.95),0 0 3px rgba(246,240,222,.9)}
+/* stone, bowl, cup */
+html.m #stoneG{left:10px;top:calc(1150px + var(--dy));width:1150px;height:575px}
+html.m #stoneM{left:0;top:0;width:1150px;height:575px}
+#stoneShade{display:none!important;position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(26,22,12,0) 26%,rgba(26,22,12,.5) 52%,rgba(18,15,8,.74) 100%);
+  -webkit-mask:url(img/mStone.webp) 0 0/100% 100% no-repeat;mask:url(img/mStone.webp) 0 0/100% 100% no-repeat}
+html.m #bowlM{left:525px;top:-91px;width:456px;height:304px}
+html.m #stoneSheen{-webkit-mask-image:url(img/mStone.webp);mask-image:url(img/mStone.webp)}
+html.m #cupBox{left:253px;top:calc(719px + var(--dy));width:435px;height:652px}
+html.m #shadow{left:472px;top:calc(1305px + var(--dy))}
+html.m #shadow .s1{left:-150px;top:-17px;width:300px;height:34px}
+html.m #shadow .s2{left:-96px;top:-6px;width:192px;height:12px}
+/* readability: a soft dark gradient over the lower part of the hero only (separate layer, image untouched) */
+#heroShade{position:absolute;left:0;right:0;top:calc(1250px + var(--dy));height:560px;pointer-events:none;
+  background:radial-gradient(ellipse 66% 52% at 50% 52%,rgba(16,14,8,.6) 0%,rgba(16,14,8,.44) 42%,rgba(16,14,8,.16) 74%,rgba(16,14,8,0) 100%)}
+html.m #soon,html.m .cu{text-shadow:0 1px 14px rgba(10,10,5,.35)}
+/* countdown + CTA, centred on the stone */
+html.m #bl{left:0;width:940px;top:calc(1350px + var(--dy));align-items:center;gap:24px;--paper:#f6efda}
+html.m #soon{font-size:46px;letter-spacing:-3.4px;color:var(--paper)}
+html.m #count{gap:38px;color:var(--paper)}
+html.m .cu{gap:14px}
+html.m .cu .n{font-size:62px;letter-spacing:-4.6px}
+html.m .cu .u{font-size:36px;letter-spacing:-2.6px}
+html.m .div{background:var(--paper);height:52px}
+html.m #btn{width:586px;height:100px;border-color:#efe7cf;gap:0;font-size:30px;letter-spacing:-1.8px}
+html.m #btn svg{position:absolute;right:40px;top:50%;width:52px;height:52px;margin-top:-26px}
+/* soft out-of-focus tea leaves framing the bottom corners (same leaf cut-outs) */
+.fgLeaf{position:absolute;pointer-events:none;filter:blur(5px)}
+html.m #fgL1{left:-80px;top:calc(1415px + var(--dy));width:250px;height:315px;transform:rotate(28deg)}
+html.m #fgL2{left:745px;top:calc(1500px + var(--dy));width:290px;height:247px;transform:rotate(196deg);filter:blur(6px)}
+
+#replay{position:fixed;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:20;
+  width:40px;height:40px;border-radius:20px;border:1px solid rgba(33,56,15,.35);background:rgba(250,245,225,.8);color:var(--ink);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;pointer-events:none;transition:opacity .4s}
+#replay.on{opacity:.75;pointer-events:auto}#replay:hover{opacity:1}
+#replay:focus-visible{outline:3px solid var(--berry);outline-offset:3px}
+#tap[hidden]{display:none}
+#tap span{padding:12px 22px;border-radius:999px;background:rgba(20,30,12,.55);border:1px solid rgba(243,236,210,.5);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+#tap{position:fixed;inset:0;z-index:30;display:flex;align-items:flex-end;padding-bottom:calc(14vh + env(safe-area-inset-bottom,0px));justify-content:center;background:transparent;border:0;color:#f3ecd2;
+  font:500 15px var(--f-body);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
+
+/* ===== interactive states ===== */
+:root{--matcha:#5f8a2a;--matcha-hi:#7da33a;--ease-out:cubic-bezier(.22,.8,.24,1)}
+/* nav + cart: underline draws in from the left, out to the right */
+#nav a,#cart{position:relative;transition:color .3s var(--ease-out)}
+#nav a::after,#cart::after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:2px;border-radius:1px;background:var(--matcha);
+  transform:scaleX(0);transform-origin:100% 50%;transition:transform .45s var(--ease-out)}
+#nav a:hover,#cart:hover,#nav a:focus-visible,#cart:focus-visible{color:var(--ink)}
+#nav a:hover::after,#cart:hover::after,#nav a:focus-visible::after,#cart:focus-visible::after{transform:scaleX(1);transform-origin:0 50%}
+#nav a:active,#cart:active{color:var(--matcha)}
+/* round social buttons */
+.soc a{transition:background-color .3s var(--ease-out),scale .35s var(--ease-out),box-shadow .35s var(--ease-out)}
+.soc a svg{transition:rotate .45s var(--ease-out)}
+.soc a:hover,.soc a:focus-visible{background:var(--matcha);scale:1.08;box-shadow:0 6px 18px rgba(33,56,15,.28)}
+.soc a:hover svg{rotate:-8deg}
+.soc a:active{scale:.94}
+/* booking button: a matcha fill sweeps in, the arrow glides forward */
+#btn{overflow:hidden;isolation:isolate;transition:scale .3s var(--ease-out),box-shadow .35s var(--ease-out),border-color .3s}
+#btn::before{content:"";position:absolute;inset:-2px;z-index:-1;border-radius:inherit;background:linear-gradient(100deg,var(--matcha),var(--matcha-hi));
+  transform:translateX(-101%);transition:transform .55s var(--ease-out)}
+#btn:hover::before,#btn:focus-visible::before{transform:translateX(0)}
+#btn:hover,#btn:focus-visible{box-shadow:0 10px 26px rgba(33,56,15,.32);border-color:var(--matcha)}
+#btn svg{transition:translate .45s var(--ease-out)}
+#btn:hover svg,#btn:focus-visible svg{translate:8px 0}
+#btn:active{scale:.97}
+/* logo: the whisk gives a little stir */
+#logo svg{transform-origin:60% 85%;transition:rotate .5s var(--ease-out)}
+#logo:hover svg{animation:whisk .7s var(--ease-out)}
+@keyframes whisk{0%{rotate:0deg}25%{rotate:-12deg}55%{rotate:9deg}80%{rotate:-4deg}100%{rotate:0deg}}
+#logo span{transition:color .3s}#logo:hover span{color:var(--matcha)}
+/* burger: lines spread apart */
+#burger i{transition:translate .35s var(--ease-out),width .35s var(--ease-out),background-color .3s;margin-left:auto;width:100%}
+#burger:hover i:first-child{translate:0 -3px}#burger:hover i:last-child{translate:0 3px;width:70%}
+#burger:hover i{background:var(--matcha)}
+/* replay */
+#replay{transition:opacity .4s,rotate .6s var(--ease-out),scale .3s var(--ease-out)}
+#replay:hover{rotate:-200deg;scale:1.08}
+#replay:active{scale:.92}
+
+/* ===== matcha-powder cursor (fine pointers only) ===== */
+#powder{position:fixed;inset:0;width:100%;height:100%;z-index:40;pointer-events:none}
+html.pc,html.pc *{cursor:none!important}
+@media (prefers-reduced-motion: reduce){#logo:hover svg{animation:none}#replay:hover{rotate:0deg}}
+
+/* ===== hover: matcha liquid flowing inside the headline ===== */
+#cloudG{pointer-events:none}
+#matchaMask{cursor:pointer;outline:none}
+#matchaMask:focus-visible{outline:3px solid var(--matcha);outline-offset:6px;border-radius:8px}
+/* ===== dust: a few fine matcha grains drifting through the navigation band ===== */
+#navDust{position:absolute;left:520px;top:0;width:980px;height:95px;pointer-events:none;opacity:.55;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent);mask:linear-gradient(90deg,transparent,#000 14%,#000 86%,transparent)}
+html.m #navDust{display:none}
+@media (prefers-reduced-motion: reduce){#navDust{display:none}}
+</style>
+</head>
+<body>
+<div class="vp" id="vp">
+  <!-- SCENE 2 · hero -->
+  <section class="wrap" id="hero" aria-label="Cloud Matcha">
+    <div class="stage" id="heroStage">
+      <div class="L" id="sky"><img class="d" src="img/sky.webp" width="1920" height="1700" alt=""><img class="mo" src="img/mFar.webp" width="940" height="2270" alt=""></div>
+      <div id="sun"><i></i></div>
+      <div class="L" id="mid"><img src="img/mid.webp" width="1920" height="1020" alt=""></div>
+      <div class="L" id="pagoda"><img src="img/pagoda.webp" width="190" height="260" alt=""></div>
+      <div class="mist" id="mist1"></div><div class="mist" id="mist2"></div>
+      <div class="L" id="front"><img class="d" src="img/front.webp" width="1920" height="240" alt=""><img class="mo" src="img/mNear.webp" width="940" height="590" alt=""></div>
+
+      <div id="matchaMask" tabindex="0" aria-label="matcha"><div id="matchaIn"><h1 id="matcha">Matcha</h1><span class="liq" id="matchaLiquid" aria-hidden="true">Matcha</span></div></div>
+
+      <div id="stoneG">
+        <img id="stone" src="img/stone.webp" alt="">
+        <img id="leaves" src="img/leaves.webp" width="275" height="166" alt="">
+        <img id="leaf2" src="img/leaf2.webp" width="153" height="105" alt="">
+        <img class="mo" id="stoneM" src="img/mStone.webp" alt="">
+        <div class="mo" id="stoneShade"></div>
+        <img class="mo" id="bowlM" src="img/mBowl.webp" alt="">
+        <div id="stoneSheen"></div>
+      </div>
+      <div class="mo" id="heroShade" aria-hidden="true"></div>
+
+      <canvas id="navDust" width="980" height="95" aria-hidden="true"></canvas>
+      <nav class="ui" id="nav" aria-label="Main"><a href="#store">Store</a><a href="#menu">Menu</a><a href="#delivery">delivery</a></nav>
+      <div class="ui" id="loc"><b>Our Location:</b><span>Druzhby Narodov Ul., bld. 23</span></div>
+      <div class="ui" id="topR">
+        <a id="cart" href="#cart">Cart( 0 )</a>
+        <div class="soc">
+          <a href="#whatsapp" aria-label="WhatsApp"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M14.4544 14.0009C12.8801 15.5752 9.25294 14.2334 7.4398 12.4203C5.62666 10.6071 4.2849 6.97996 5.85918 5.40568C6.31518 4.94968 6.94309 4.89539 7.32671 4.91349C7.54837 4.92344 7.74018 5.05372 7.86956 5.23468L8.7309 6.44163C8.85525 6.61592 8.91377 6.82866 8.89605 7.04203C8.87832 7.25541 8.7855 7.45558 8.63409 7.60696L7.8189 8.42215C7.96909 8.87453 8.45223 9.96024 9.17604 10.6841C9.89985 11.4079 10.9856 11.891 11.4379 12.0412L12.2531 11.2269C12.4044 11.0754 12.6045 10.9824 12.8179 10.9645C13.0313 10.9466 13.2441 11.005 13.4185 11.1292L14.6254 11.9905C14.8064 12.1199 14.9367 12.3117 14.9466 12.5334C14.9647 12.917 14.9104 13.5449 14.4544 14.0009Z" stroke="#fff" stroke-width=".857" stroke-linejoin="round"/><path d="M9.92859 19.4286C15.1753 19.4286 19.4286 15.1753 19.4286 9.92856C19.4286 4.68185 15.1753 0.42857 9.92859 0.42857C4.68187 0.42857 0.428589 4.68185 0.428589 9.92856C0.428589 11.6585 0.890922 13.2816 1.69978 14.6786L0.903589 18.9536L5.17859 18.1574C6.6221 18.9926 8.26085 19.4312 9.92859 19.4286Z" stroke="#fff" stroke-width=".857" stroke-linejoin="round"/></svg></a>
+          <a href="#instagram" aria-label="Instagram"><svg width="19" height="19" viewBox="0 0 19 19" fill="none"><path d="M0.5 9.5C0.5 5.257 0.5 3.136 1.818 1.818C3.136 0.5 5.258 0.5 9.5 0.5C13.742 0.5 15.864 0.5 17.182 1.818C18.5 3.136 18.5 5.258 18.5 9.5C18.5 13.742 18.5 15.864 17.182 17.182C15.864 18.5 13.742 18.5 9.5 18.5C5.258 18.5 3.136 18.5 1.818 17.182C0.5 15.864 0.5 13.742 0.5 9.5Z" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"/><path d="M14.875 4.25H14.75M13.5 9.5C13.5 10.5609 13.0786 11.5783 12.3284 12.3284C11.5783 13.0786 10.5609 13.5 9.5 13.5C8.43913 13.5 7.42172 13.0786 6.67157 12.3284C5.92143 11.5783 5.5 10.5609 5.5 9.5C5.5 8.43913 5.92143 7.42172 6.67157 6.67157C7.42172 5.92143 8.43913 5.5 9.5 5.5C10.5609 5.5 11.5783 5.92143 12.3284 6.67157C13.0786 7.42172 13.5 8.43913 13.5 9.5ZM15 4.25C15 4.3163 14.9737 4.37989 14.9268 4.42678C14.8799 4.47366 14.8163 4.5 14.75 4.5C14.6837 4.5 14.6201 4.47366 14.5732 4.42678C14.5263 4.37989 14.5 4.3163 14.5 4.25C14.5 4.1837 14.5263 4.12011 14.5732 4.07322C14.6201 4.02634 14.6837 4 14.75 4C14.8163 4 14.8799 4.02634 14.9268 4.07322C14.9737 4.12011 15 4.1837 15 4.25Z" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+      </div>
+      <div class="ui" id="info"><span>Matcha from japan</span><span>25 flavours</span></div>
+
+      <div class="leftfade d"></div>
+      <img class="mo fgLeaf" id="fgL1" src="img/leafC.webp" alt="">
+      <img class="mo fgLeaf" id="fgL2" src="img/leafA.webp" alt="">
+
+      <div class="ui" id="bl">
+        <p id="soon">Opening soon</p>
+        <div id="count">
+          <div class="cu"><span class="n">12</span><span class="u">days</span></div>
+          <span class="div"></span>
+          <div class="cu"><span class="n">08</span><span class="u">hours</span></div>
+          <span class="div"></span>
+          <div class="cu"><span class="n">12</span><span class="u">Minutes</span></div>
+        </div>
+        <a id="btn" href="#book"><span class="d">Book s spot</span><span class="mo">Book a spot</span><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.49776 19.9991C2.49776 19.6676 2.62946 19.3497 2.86388 19.1153C3.0983 18.8808 3.41624 18.7491 3.74776 18.7491H33.2303L25.3628 10.8841C25.2465 10.7679 25.1544 10.6299 25.0915 10.4781C25.0286 10.3262 24.9962 10.1635 24.9962 9.99914C24.9962 9.83478 25.0286 9.67203 25.0915 9.52018C25.1544 9.36833 25.2465 9.23036 25.3628 9.11414C25.479 8.99792 25.617 8.90573 25.7688 8.84283C25.9207 8.77993 26.0834 8.74756 26.2478 8.74756C26.4121 8.74756 26.5749 8.77993 26.7267 8.84283C26.8786 8.90573 27.0165 8.99792 27.1328 9.11414L37.1328 19.1141C37.2492 19.2303 37.3415 19.3682 37.4045 19.5201C37.4676 19.6719 37.5 19.8347 37.5 19.9991C37.5 20.1636 37.4676 20.3264 37.4045 20.4782C37.3415 20.6301 37.2492 20.768 37.1328 20.8841L27.1328 30.8841C27.0165 31.0004 26.8786 31.0925 26.7267 31.1554C26.5749 31.2183 26.4121 31.2507 26.2478 31.2507C26.0834 31.2507 25.9207 31.2183 25.7688 31.1554C25.617 31.0925 25.479 31.0004 25.3628 30.8841C25.2465 30.7679 25.1544 30.6299 25.0915 30.4781C25.0286 30.3262 24.9962 30.1635 24.9962 29.9991C24.9962 29.8348 25.0286 29.672 25.0915 29.5202C25.1544 29.3683 25.2465 29.2304 25.3628 29.1141L33.2303 21.2491H3.74776C3.41624 21.2491 3.0983 21.1174 2.86388 20.883C2.62946 20.6486 2.49776 20.3307 2.49776 19.9991Z" fill="#fff"/></svg></a>
+      </div>
+
+      <div id="roofG"><div id="roofS">
+        <div id="lantern"><div id="lanternGlow"></div><img src="img/lantern.webp" alt=""></div>
+        <img id="roof" src="img/roof.png" width="675" height="747" alt="">
+      </div></div>
+      <button class="ui mo" id="burger" type="button" aria-label="Open menu"><i></i><i></i><i></i></button>
+
+      <a class="ui" id="logo" href="#top" aria-label="Cloud home"><svg viewBox="0 0 41 42" fill="none" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M22.5879 16.8217C21.9279 16.5135 21.2728 16.2075 20.6328 15.9186C20.1226 16.7775 18.5529 18.9146 17.933 19.6261C12.7409 19.6648 5.85812 20.6636 1.85446 24.4408C-0.159074 26.3936 -0.211608 28.9403 1.85803 30.9121C3.88137 32.8395 6.42072 33.3945 8.98 33.9539C9.4252 34.0512 9.871 34.1486 10.3148 34.2535C13.7823 35.0723 32.9606 35.118 32.6961 30.0076C32.6671 29.4103 32.399 28.85 31.952 28.453C31.2928 27.8674 26.5393 25.8739 26.7591 27.9028C26.8233 28.4949 27.7981 28.709 28.7985 28.9287C29.7964 29.1479 30.8198 29.3726 30.9899 29.9838C31.0439 30.1772 30.922 30.4604 30.7965 30.6082C29.5529 31.8855 24.8051 32.5135 23.2067 32.6489C23.1136 32.6567 23.0204 32.6629 22.927 32.6676L23.7405 29.1112L24.8254 24.3421C24.8804 24.1026 24.9365 23.8459 24.9936 23.5846L24.9941 23.5824C25.122 22.9974 25.2563 22.3831 25.3995 21.8597C25.6641 21.8984 25.9278 21.9357 26.1892 21.9728C27.0472 22.0944 27.8941 22.2144 28.7677 22.3812C30.4086 22.6946 31.8311 23.1945 33.3589 23.8666C35.897 24.9834 38.8572 27.8336 38.294 30.853C37.5466 34.8566 33.724 38.0859 30.1011 39.5256C29.6675 39.7019 29.1328 39.9493 29.0696 40.4798C29.0457 40.681 29.1038 40.8828 29.2303 41.0404C29.6605 41.5774 30.4545 41.2318 30.9944 40.9968L30.9966 40.9959C31.0299 40.9814 31.0624 40.9672 31.0937 40.9538C33.0384 40.122 34.8162 38.9453 36.3424 37.4812C38.085 35.7844 40.0754 32.7407 40.0354 30.2877C39.9193 23.2158 31.1808 20.727 25.7727 20.2402C25.7845 20.1852 25.7963 20.1301 25.808 20.0749L25.83 19.9716C25.9387 19.4598 26.0482 18.9445 26.1905 18.4431C25.0157 17.9556 23.7933 17.3847 22.5879 16.8217ZM16.8225 21.3215L16.898 21.345C16.8924 21.4739 15.8298 23.0094 14.7994 24.4985C13.9448 25.7335 13.1118 26.9372 12.9226 27.2796C12.1495 28.6785 11.8818 29.8608 11.5779 31.2027C11.472 31.67 11.3618 32.1566 11.2244 32.6784C8.5518 32.2418 6.67938 31.8207 4.29822 30.5543C-1.0185 27.2828 4.1444 24.4084 7.54587 23.0824C10.5781 21.9003 13.5895 21.4701 16.8225 21.3215ZM20.0612 20.0943C19.2912 21.4073 18.5367 22.7722 17.7885 24.1255C17.4653 24.7103 17.1431 25.2931 16.8213 25.8688C16.6709 26.1377 16.5029 26.4317 16.3278 26.7382C15.7884 27.6819 15.1806 28.7452 14.8075 29.5705C14.5486 30.1429 14.2728 30.9328 14.0093 31.6878C13.855 32.1297 13.7049 32.5596 13.5648 32.9269C13.4185 32.9115 13.2594 32.8892 13.105 32.8676C13.0402 32.8585 12.9762 32.8496 12.9144 32.8413C13.0296 32.436 13.1394 31.9544 13.2532 31.4551C13.46 30.5476 13.6806 29.5797 13.9731 28.8975C14.283 28.1748 15.1559 26.9247 15.7744 26.0389C15.9073 25.8486 16.0285 25.6751 16.1298 25.5272C17.4172 23.6685 18.6888 21.7989 19.9445 19.9186C19.975 19.8699 20.0178 19.7964 20.0685 19.7094C20.2713 19.3616 20.5997 18.7982 20.7655 18.7446C20.7452 19.0518 20.2528 19.8307 20.0612 20.0943ZM21.5238 21.5245C21.7023 21.0497 21.9798 20.3115 22.1162 20.0481C22.2704 19.6653 22.3392 19.4647 22.4406 19.0654C22.4211 19.0966 22.4022 19.1266 22.3838 19.1558C22.2363 19.3905 22.1232 19.5703 22.0129 19.8433L18.4032 26.4314C18.2327 26.7393 18.0584 27.0472 17.8852 27.3531C17.0749 28.7845 16.2678 30.2102 15.7645 31.7854C15.6871 32.0274 15.5969 32.2732 15.5069 32.5183C15.4453 32.6861 15.3838 32.8535 15.3266 33.0192C15.9291 33.0083 16.5317 33.0088 17.1341 33.0202C17.3632 32.3146 17.6712 31.5298 17.9625 30.7879C18.0557 30.5504 18.1472 30.3174 18.2338 30.0927L20.1284 25.1801L21.4159 21.8102C21.444 21.7369 21.4811 21.6382 21.5238 21.5245ZM23.8853 20.9118C23.9793 20.633 24.0468 20.27 24.1065 19.9492C24.1197 19.8783 24.1325 19.8092 24.1452 19.7438C23.9779 20.0549 23.712 20.6998 23.6072 21.0471C22.9606 22.6943 22.2814 24.3554 21.6012 26.0189C20.6487 28.3483 19.6942 30.6828 18.824 32.9917C19.287 32.9379 19.9429 32.9132 20.5285 32.8911C20.7673 32.8821 20.9944 32.8735 21.192 32.8636C21.2657 32.2402 21.5971 30.8584 21.8389 29.8498C21.9154 29.5309 21.9833 29.2479 22.0308 29.0396L23.8853 20.9118Z" fill="#21380F"/><path d="M29.6335 0.342808C30.8699 0.215802 31.9273 0.7649 32.4008 1.96977C33.2135 4.11617 31.6385 6.3014 30.7786 8.22739C29.4328 11.2431 27.8214 14.2169 26.5219 17.2531C26.0557 17.0172 25.4589 16.7325 24.9799 16.5397L28.7438 8.59933C29.4126 7.19516 30.1324 5.74515 30.7408 4.31697C30.9202 3.8968 30.9679 3.55441 30.972 3.1038C30.8979 2.72211 30.7682 2.20029 30.3585 2.07069C28.8758 1.60099 28.0566 4.02951 27.6577 4.93333L26.2824 8.05132L24.1373 12.8787C23.7619 13.7244 23.2738 14.7506 22.9563 15.6008C22.4443 15.3576 21.9269 15.126 21.4046 14.906L25.1844 6.38085C25.69 5.2406 26.1881 4.09485 26.6972 2.95605C27.309 1.58735 28.1331 0.66289 29.6335 0.342808Z" fill="#21380F" stroke="#21380F" stroke-width=".65" stroke-linejoin="round"/></svg><span>cloud</span></a>
+
+      <div id="cloudG" aria-hidden="true">
+        <div class="cm cm-crisp"><p id="cloudWord">cloud</p><canvas id="cloudMorph" width="931" height="408"></canvas></div>
+        <img class="cmSprite" id="cm0" src="img/cm0.webp" alt="" hidden><img class="cmSprite" id="cm1" src="img/cm1.webp" alt="" hidden><img class="cmSprite" id="cm2" src="img/cm2.webp" alt="" hidden><img class="cmSprite" id="cm3" src="img/cm3.webp" alt="" hidden><img class="cmSprite" id="cm4" src="img/cm4.webp" alt="" hidden>
+      </div>
+    </div>
+  </section>
+
+  <!-- SCENE 1 · intro video -->
+  <section class="wrap" id="intro" aria-hidden="true">
+    <div class="stage" id="introStage">
+      <div id="introIn">
+        <div class="mo" id="introBg"></div>
+        <img id="first" src="img/first.jpg" alt="">
+        <video id="vid" src="img/intro.mp4" muted playsinline webkit-playsinline preload="none" disablepictureinpicture></video>
+        <canvas id="seqCv" width="1024" height="576"></canvas>
+        <img class="plate" id="plate" src="img/plate.jpg" alt="">
+        <div class="vignette"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the cup: one object across both scenes -->
+  <div class="wrap" id="cupWrap" aria-hidden="true">
+    <div class="stage" id="cupStage">
+      <div id="shadow"><i class="s1"></i><i class="s2"></i></div>
+      <img class="leaf" id="leafA" src="img/leafA.webp" width="120" height="102" alt="">
+      <img class="leaf" id="leafB" src="img/leafB.webp" width="96" height="67" alt="">
+      <img class="leaf" id="leafC" src="img/leafC.webp" width="84" height="106" alt="">
+      <div id="cupBox"><div id="cupIn">
+        <img src="img/cup.webp" alt="">
+        <div class="cupFx" id="cupSheen"></div>
+        <div class="cupFx" id="drops"></div>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<button id="replay" type="button" aria-label="Replay animation"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></button>
+<button id="tap" type="button" hidden><span>Tap to play</span></button>
+
+<canvas id="powder" aria-hidden="true"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  /* Some embedded previews deliver no animation frames even while the page is visible. Detect it and
+     drive GSAP (and the intro frame player) from a timer instead, so the sequence always completes. */
+  let rafAlive = false, lastRaf = performance.now();
+  (function beat(){ requestAnimationFrame(() => { rafAlive = true; lastRaf = performance.now(); beat(); }); })();
+  // keep real time even when frames arrive late (throttled previews): no lag smoothing, so the intro → hero hand-off never creeps
+  gsap.ticker.lagSmoothing(0);
+  let usingRaf = true;
+  setInterval(() => {                              // GSAP 3: tick the clock by hand while animation frames are stalled
+    usingRaf = performance.now() - lastRaf <= 400;
+    if (!usingRaf && window.gsap) gsap.ticker.tick();
+  }, 33);
+  const nextFrame = fn => (performance.now() - lastRaf > 400) ? setTimeout(() => fn(performance.now()), 33) : requestAnimationFrame(fn);
+  const vid = $('#vid'), hero = $('#hero'), intro = $('#intro');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- fit the 1920×1080 stages ---------- */
+  function fit(){
+    const r = document.documentElement;          // usable area (excludes the page's safe-area padding)
+    // real layout size of the page; the visual viewport only refines the height when it is valid and smaller
+    // (Safari's toolbars). Embedded frames can report 0×0 while loading — never lay out from that.
+    const vv = window.visualViewport;
+    const w = Math.round(r.clientWidth || window.innerWidth);
+    let h = Math.round(window.innerHeight || r.clientHeight);
+    if (vv && vv.height > 50 && vv.height < h) h = Math.round(vv.height);
+    if (!(w > 50 && h > 50)) { requestAnimationFrame(fit); setTimeout(fit, 120); return; }
+    const m = w / h < .8;                          // portrait screens use the mobile composition
+    r.classList.toggle('m', m);
+    let s, W, H, dx = 0;
+    let ox = 0, oy = 0;
+    if (!m) {   // desktop fills the window: never stretched — the scene gains width (wide screens) or height (tall ones)
+      if (w / h >= 1920 / 1080) { s = h / 1080; ox = (w / s - 1920) / 2; }
+      else { s = w / 1920; oy = h / s - 1080; }
+      W = 1920 + 2 * ox; H = 1080 + oy;
+    }
+    else {
+      // phones always fill the screen: full width; taller screens get extra stage height, shorter ones
+      // (e.g. Safari with its toolbars showing) get extra width on both sides — no empty bands either way
+      s = w / 940; H = Math.round(h / s); W = 940;
+      if (H < 1672) { s = h / 1672; H = 1672; W = w / s; dx = (W - 940) / 2; }
+    }
+    if (!m) vid.preload = 'auto';
+    // mobile: the film box is sized and placed on its own over the portrait background layer —
+    // cup ≈ 55% of the width, centred at 44% of the height, ingredient ring kept fully on screen
+    // phones: the cup sequence is sized from the screen *width* (cup ≈ 49% of it, ingredient ring fully on screen) and
+    // centred vertically in the open sky; the background is laid out independently (cover + per-aspect anchor)
+    const vw = m ? 1720 : 1920, vh = vw * 1080 / 1920;
+    const vx = m ? (940 - vw) / 2 : 0, vy = m ? .45 * H - 590 * (vw / 1920) : 0;
+    r.style.setProperty('--s', s); r.style.setProperty('--W', W + 'px'); r.style.setProperty('--H', H + 'px');
+    r.style.setProperty('--dy', (m ? H - 1672 : 0) + 'px');
+    r.style.setProperty('--ty', (m ? Math.round((H - 1672) * .32) : 0) + 'px');   // part of the extra height opens up the headline block
+    r.style.setProperty('--vw', vw + 'px'); r.style.setProperty('--vh', vh + 'px');
+    r.style.setProperty('--vx', vx + 'px'); r.style.setProperty('--vy', vy + 'px');
+    r.style.setProperty('--dx', dx + 'px');
+    r.style.setProperty('--ox', ox + 'px'); r.style.setProperty('--oy', oy + 'px'); r.style.setProperty('--kx', 1 + 2 * ox / 1920);
+    // desktop film covers the whole window (centred crop), same box for film, plate and first frame
+    const kv = Math.max(W / 1920, H / 1080), dvw = 1920 * kv, dvh = 1080 * kv;
+    const dvx = -ox + (W - dvw) / 2, dvy = -oy + (H - dvh) / 2;
+    r.style.setProperty('--dvx', dvx + 'px'); r.style.setProperty('--dvy', dvy + 'px');
+    r.style.setProperty('--dvw', dvw + 'px'); r.style.setProperty('--dvh', dvh + 'px');
+    // phone frames cover film x 340–1580 and extend 640 film px above the film's top edge (the poured stream)
+    const kf = vw / 1920;
+    r.style.setProperty('--cx', (vx + 340 * kf) + 'px'); r.style.setProperty('--cw', (1240 * kf) + 'px');
+    r.style.setProperty('--cy', (vy - 640 * kf) + 'px'); r.style.setProperty('--ch', (1720 * kf) + 'px');
+    // shared gutter for the mobile header (≈24–30 css px, wider phones get a little more), in stage units
+    const gut = Math.max(22, Math.min(30, w * .068));
+    r.style.setProperty('--gx', (gut / s) + 'px'); r.style.setProperty('--gt', (16 / s) + 'px');
+    r.style.setProperty('--bgy', (m ? Math.max(30, Math.min(55, 40 + (H / 1672 - 1) * 40)) : 40) + '%');
+    LAYOUT = { m, W, H, dx, dy: m ? H - 1672 : 0, k: vw / 1920, vx, vy, ox, oy, kv, dvx, dvy };
+  }
+  let LAYOUT = {};
+  addEventListener('resize', fit); addEventListener('orientationchange', fit);
+  if (window.visualViewport) visualViewport.addEventListener('resize', fit);
+  if (window.ResizeObserver) new ResizeObserver(() => fit()).observe(document.documentElement);
+  fit();
+
+  /* ---------- geometry (stage px) ---------- */
+  // cup as it stands at the end of the video, measured on the last frame
+  // the cup as it stands at the end of the video (measured on the last frame, video px), relative to its final box
+  function cup0(){
+    if (!LAYOUT.m) { const kv = LAYOUT.kv, l = 606*kv + LAYOUT.dvx, t = 70*kv + LAYOUT.dvy;
+      return { x: l - (996 + LAYOUT.ox), y: t - 341, s: 683*kv/489 }; }
+    // measured fit of the hero cup image to the film's last frame: 693.2 px wide at (607.4, 69.4) film px
+    const k = LAYOUT.k, l = 607.4*k + LAYOUT.vx, t = 69.4*k + LAYOUT.vy;
+    return { x: l - 253, y: t - (719 + LAYOUT.dy), s: 693.2*k / 435 };
+  }
+
+  /* ---------- headline liquid textures ----------
+     A 420px-wide wave tile; below the crest the body fades from a slightly lighter
+     shade of the word's colour to the exact colour within 70px, then stays exact. */
+  function liquid(light, exact, crest, back){
+    const svg = (d, body) => 'url("data:image/svg+xml,' + encodeURIComponent(
+      `<svg xmlns='http://www.w3.org/2000/svg' width='420' height='760' viewBox='0 0 420 760'>${d}${body}</svg>`) + '")';
+    const wave = 'M0 16C70 9 140 9 210 16S350 23 420 16';
+    const front = svg(`<defs><linearGradient id='g' x1='0' y1='0' x2='0' y2='86' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='${light}'/><stop offset='1' stop-color='${exact}'/></linearGradient></defs>`,
+      `<path d='${wave}V760H0Z' fill='url(#g)'/><path d='${wave}' fill='none' stroke='${crest}' stroke-width='2.5' stroke-opacity='.7'/>`);
+    const rear = svg('', `<path d='M0 16C70 23 140 23 210 16S350 9 420 16V760H0Z' fill='${back}' fill-opacity='.55'/>`);
+    return front + ',' + rear;
+  }
+  const mL = document.getElementById('matchaLiquid');
+  const ENTRANCE_LIQ = liquid('#33501c', '#223810', '#47672b', '#2b4515');
+  mL.style.backgroundImage = ENTRANCE_LIQ;
+  mL.style.backgroundSize = '420px 760px, 420px 760px';
+
+  /* ---------- CLOUD · soft wave ----------
+     Letters are wrapped only while the wave runs (glyph positions are identical with or
+     without the wrappers), then the plain word is restored. */
+  const cloudWord = document.getElementById('cloudWord');
+  function splitCloud(){
+    if (cloudWord.querySelector('.wl')) return;
+    cloudWord.innerHTML = [...cloudWord.textContent].map(c => `<span class="wl">${c}</span>`).join('');
+  }
+  function unsplitCloud(){ if (cloudWord.querySelector('.wl')) cloudWord.textContent = cloudWord.textContent; }
+  /* ---------- CLOUD · cloud-to-type morph ----------
+     Each letter of "cloud" was pre-rendered (from the exact glyph) as 30 frames: soft cumulus
+     puffs shaped like the letter billow in, contract onto the contour, and the solid pink grows
+     outward from inside the strokes until it fills the exact glyph. Frames play on one canvas
+     over the word (neighbouring frames blended for smoothness); the last frame is identical to
+     the live text, which takes over the instant the morph ends. */
+  const CM = {"n": 30, "cols": 6, "letters": [{"x": 54, "y": 102, "w": 229, "h": 232}, {"x": 197, "y": 41, "w": 194, "h": 290}, {"x": 300, "y": 102, "w": 245, "h": 232}, {"x": 453, "y": 102, "w": 271, "h": 232}, {"x": 632, "y": 41, "w": 266, "h": 293}]};
+  const cmCanvas = document.getElementById('cloudMorph'), cmCtx = cmCanvas.getContext('2d');
+  const cmImgs = [0,1,2,3,4].map(i => document.getElementById('cm' + i));
+  const CM_DUR = 1.15, CM_STAG = .075;               // per letter; C → L → O → U → D  (≈1.45 s total)
+  function drawMorph(t){
+    cmCtx.clearRect(0, 0, cmCanvas.width, cmCanvas.height);
+    CM.letters.forEach((L, i) => {
+      const pr = Math.min(1, Math.max(0, (t - i*CM_STAG) / CM_DUR)) * (CM.n - 1);
+      const f0 = Math.floor(pr), f1 = Math.min(CM.n - 1, f0 + 1), mix = pr - f0;
+      const blit = (f, a) => { if (a <= 0) return; cmCtx.globalAlpha = a;
+        cmCtx.drawImage(cmImgs[i], (f % CM.cols)*L.w, Math.floor(f / CM.cols)*L.h, L.w, L.h, L.x, L.y, L.w, L.h); };
+      blit(f0, 1 - mix); blit(f1, mix);
+    });
+    cmCtx.globalAlpha = 1;
+  }
+  function cloudMorph(){
+    const st = { t: 0 }, total = CM_DUR + 4*CM_STAG;
+    return gsap.timeline()
+      .set(cmCanvas, { visibility: 'visible' })
+      .fromTo(st, { t: 0 }, { t: total, duration: total, ease: 'none', onUpdate: () => drawMorph(st.t), onStart: () => drawMorph(0) })
+      .set('#cloudWord', { opacity: 1 })
+      .set(cmCanvas, { visibility: 'hidden' });
+  }
+
+  /* ---------- tea leaves ----------
+     Three leaves cut from the supplied photo travel on smooth Catmull-Rom paths (stage px,
+     leaf centre). While a leaf is between "back" indices it passes behind the glass. */
+  const LEAVES = [
+    { id: 'leafA', at: 0,   dur: 7.0, rot: [-18, 205], flip: 1.9,
+      pts: [[1565,460],[1500,418],[1330,396],[1160,428],[1022,598],[978,705],[1012,825],[962,960],[996,1170]], back: [1, 4] },
+    { id: 'leafC', at: .55, dur: 6.6, rot: [8, 150],  flip: 2.4,
+      pts: [[1474,566],[1532,502],[1604,562],[1560,650],[1484,704],[1532,806],[1490,930],[1544,1170]], back: [9, 9] },
+    { id: 'leafB', at: 1.1, dur: 7.8, rot: [34, -160], flip: 1.6,
+      pts: [[1002,705],[1040,642],[1200,612],[1402,640],[1502,700],[1560,640],[1610,722],[1560,862],[1622,1000],[1584,1170]], back: [1, 4] }
+  ];
+  const cr = (p0, p1, p2, p3, t) => {
+    const t2 = t*t, t3 = t2*t;
+    return .5*((2*p1) + (-p0+p2)*t + (2*p0-5*p1+4*p2-p3)*t2 + (-p0+3*p1-3*p2+p3)*t3);
+  };
+  function along(pts, u){
+    const n = pts.length - 1, f = Math.min(u*n, n - 1e-6), i = Math.floor(f), t = f - i;
+    const P = k => pts[Math.max(0, Math.min(n, k))];
+    return { x: cr(P(i-1)[0], P(i)[0], P(i+1)[0], P(i+2)[0], t), y: cr(P(i-1)[1], P(i)[1], P(i+1)[1], P(i+2)[1], t), seg: i };
+  }
+  let skipLeaves = false;
+  function hideLeaves(){ LEAVES.forEach(L => gsap.set('#'+L.id, { opacity: 0, x: -400, y: -400 })); }
+  function startLeaves(){
+    LEAVES.forEach(L => {
+      const el = document.getElementById(L.id), st = { u: 0 };
+      const pts = !LAYOUT.m ? L.pts.map(([x, y]) => [x + LAYOUT.ox, y]) : L.pts.map(([x, y], j, a) =>
+        [(x - 1242)*.89 + 472, j === a.length - 1 ? LAYOUT.H + 130 : (y - 1001)*.89 + 1306 + LAYOUT.dy]);
+      gsap.to(el, { opacity: 1, duration: .9, ease: 'sine.out', delay: L.at });
+      gsap.to(st, { u: 1, duration: L.dur, delay: L.at, ease: 'sine.in',
+        onUpdate(){
+          const q = along(pts, st.u), k = st.u * L.dur;
+          el.style.zIndex = (q.seg >= L.back[0] && q.seg < L.back[1]) ? 1 : 3;
+          gsap.set(el, { x: q.x, y: q.y,
+            rotation: L.rot[0] + (L.rot[1]-L.rot[0])*st.u + 6*Math.sin(k*1.7),
+            scaleY: .78 + .22*Math.cos(k*L.flip) });          // gentle tumble, like a leaf turning in air
+        } });
+    });
+  }
+
+  /* ---------- condensation droplets ---------- */
+  const drops = $('#drops');
+  const dropEls = [];
+  [[118,330],[372,300],[402,420],[96,520],[350,560],[140,250],[330,250],[250,600]].forEach(([x,y])=>{
+    const d = document.createElement('i'); d.className='drop';
+    d.style.left = x+'px'; d.style.top = y+'px'; drops.appendChild(d); dropEls.push(d);
+  });
+
+  /* ---------- lantern: damped pendulum that never fully stops ---------- */
+  const lantern = $('#lantern');
+  let swingT0 = null;
+  function swing(){
+    if (swingT0 === null) return;
+    const t = (performance.now() - swingT0)/1000;
+    const amp = 0.7 + 4.6*Math.exp(-t/1.9);            // degrees
+    const w = 2*Math.PI/2.35;                         // ~2.35 s period
+    const a = amp*Math.sin(w*t) * Math.min(1, t/0.45); // ease in from rest
+    gsap.set(lantern, { rotation: a });
+  }
+  gsap.ticker.add(swing);
+
+  /* ---------- initial state ---------- */
+  function reset(){
+    hoverReady = false; hovering = false; flowTw = bobTw = levelTw = null; lq.y = 220;
+    mL.style.backgroundImage = ENTRANCE_LIQ;
+    gsap.globalTimeline.clear();
+    gsap.set(intro, { yPercent: 0, y: 0 });
+    gsap.set(document.body, { backgroundColor: '#141f0c' });
+    gsap.set('#introIn', { scale: 1, filter: 'brightness(1)' });
+    gsap.set(hero, { y: '100%' });
+    gsap.set(['#vid','#first'], { opacity: 1 }); gsap.set('#plate', { opacity: 0 });
+    gsap.set('#sky',    { y: -520 });
+    gsap.set('#mid',    { y: -300 });
+    gsap.set('#pagoda', { y: -330 });
+    gsap.set('#front',  { y: 140 });
+    gsap.set('#roofG',  { y: 210 });
+    gsap.set('#stoneG', { y: 380, scale: 1.05 });
+    gsap.set('#sun i',  { opacity: 0, scale: .8 });
+    gsap.set('.mist',   { opacity: 0, x: 0 });
+    // MATCHA: empty letters (pale ghost of the word) waiting to be filled
+    gsap.set('#matchaIn', { yPercent: -112 });
+    // both words start as pale, empty letters waiting to be filled
+    gsap.set('#matcha',    { color: 'rgba(34,56,16,.13)' });
+    gsap.set('#cloudWord', { opacity: 0 }); unsplitCloud(); gsap.set(cmCanvas, { visibility: 'hidden' }); hideLeaves(); skipLeaves = false;
+    gsap.set('#matchaLiquid', { display: 'block', backgroundPosition: '0px 220px, -150px 226px' });
+    gsap.set(['#nav','#topR','#logo','#burger'], { opacity: 0 });
+    gsap.set(['#loc','#info','#soon'], { opacity: 0, y: 18 });
+    gsap.set('.cu .n', { opacity: 0, y: 26 });
+    gsap.set('.cu .u', { opacity: 0, y: 10 });
+    gsap.set('.div', { scaleY: 0 });
+    gsap.set('#btn', { clipPath: 'inset(0 100% 0 0 round 100px)' });
+    gsap.set('#btn span', { opacity: 0 });
+    gsap.set('#btn svg', { x: -16, opacity: 0 });
+    const c0 = cup0(); gsap.set('#cupBox', { x: c0.x, y: c0.y, scale: c0.s, opacity: 0 });
+    gsap.set('#cupIn', { rotation: 0, scaleX: 1, scaleY: 1 });
+    gsap.set('#shadow', { opacity: 0, scaleX: 1.6, scaleY: 1.6 });
+    gsap.set('#cupSheen', { opacity: 0 });
+    gsap.set(dropEls, { opacity: 0 });
+    gsap.set(lantern, { rotation: 0 }); swingT0 = null;
+    $('#replay').classList.remove('on');
+  }
+
+  /* ---------- the transition ---------- */
+  function transition(){
+    const tl = gsap.timeline({ defaults: { ease: 'power3.inOut' }, onComplete: ambient });
+    // 1 · hand-off: the finished cup takes over from the footage while nothing moves
+    const HO = .16;   // hand-off: film cup → hero cup
+    tl.to('#cupBox', { opacity: 1, duration: HO, ease: 'none' }, 0)
+      .set('#plate', { opacity: 1 }, HO).set(['#vid','#first','#seqCv'], { opacity: 0 }, HO).call(stopSeq, null, HO + .02);
+
+    const T = HO, D = 2.3;   // camera starts the moment the hero cup has taken over
+    // 2 · vertical camera travel: intro leaves upward, hero rises from below
+    tl.to(intro, { yPercent: -100, duration: D, ease: 'power2.inOut' }, T)
+      .to(document.body, { backgroundColor: '#f6f0dc', duration: D, ease: 'sine.inOut' }, T)
+      .to('#introIn', { scale: 1.035, filter: 'brightness(.82)', duration: D }, T)
+      .to(hero, { y: '0%', duration: D, ease: 'power2.inOut' }, T);
+    // parallax depth: far layers settle downward, near layers rise
+    tl.to('#sky',    { y: 0, duration: D + .45, ease: 'power3.inOut' }, T)
+      .to('#mid',    { y: 0, duration: D + .35 }, T)
+      .to('#pagoda', { y: 0, duration: D + .38 }, T)
+      .to('#front',  { y: 0, duration: D + .15 }, T)
+      .to('#roofG',  { y: 0, duration: D + .1, ease: 'power3.out' }, T + .15)
+      .to('#stoneG', { y: 0, scale: 1, duration: D - .1, ease: 'power3.out' }, T + .3)
+      .to('#sun i',  { opacity: 1, scale: 1, duration: 1.6, ease: 'sine.out' }, T + 1.4);
+    // lantern starts to sway as the roof travels in
+    tl.call(() => { swingT0 = performance.now(); }, null, T + .7);
+
+    // 3 · the cup travels onto the stone (x and y on different curves = gentle arc)
+    const L = T + .05, CD = 2.25;
+    tl.to('#cupBox', { x: 0, duration: CD, ease: 'power2.inOut' }, L)
+      .to('#cupBox', { y: -7, duration: CD, ease: 'power3.inOut' }, L)
+      .to('#cupBox', { scale: 1, duration: CD, ease: 'power2.inOut' }, L)
+      .to('#cupIn',  { rotation: -2.2, duration: CD*.5, ease: 'sine.inOut' }, L)
+      .to('#cupIn',  { rotation: 0, duration: CD*.5, ease: 'sine.inOut' }, L + CD*.5)
+      // contact + settle
+      .to('#shadow', { opacity: .55, scaleX: 1.15, scaleY: 1.15, duration: .9, ease: 'power2.in' }, L + CD - .75)
+      .to('#cupBox', { y: 0, duration: .2, ease: 'power2.in' }, L + CD)
+      .to('#shadow', { opacity: 1, scaleX: 1, scaleY: 1, duration: .2, ease: 'power2.in' }, L + CD)
+      .to('#cupIn',  { scaleY: .992, scaleX: 1.005, duration: .1, ease: 'power1.out' }, L + CD + .2)
+      .to('#cupIn',  { scaleY: 1, scaleX: 1, duration: .45, ease: 'elastic.out(1, .5)' }, L + CD + .3);
+
+    // 4 · typography
+    const Y = T + 1.15, F = Y + .62;
+    // filled word = exact colour; swap the empty base for the final colour under the liquid once the glyphs are full
+    const fill = (el, rise, k) => gsap.timeline()
+      .to(el, { backgroundPosition: k[0], duration: rise, ease: 'power1.inOut' })
+      .to(el, { backgroundPosition: k[1], duration: .16, ease: 'sine.out' })
+      .to(el, { backgroundPosition: k[2], duration: .22, ease: 'sine.inOut' })
+      .to(el, { backgroundPosition: k[3], duration: .32, ease: 'power2.in' });
+    // empty "matcha" drops into place from above (existing mask reveal)
+    tl.to('#matchaIn', { yPercent: 0, duration: .9, ease: 'back.out(1.5)' }, Y - .15)
+    // empty "cloud" outline settles in while "matcha" lands
+      .add(cloudMorph(), Y + .2)
+    // LIQUID FILL · matcha starts first, cloud 0.25 s later; both finish together
+    // keyframes = [rise with drifting wave] → [small overshoot past the top] → [settle back] → [surface leaves the glyphs]
+      .add(fill('#matchaLiquid', 1.3, ['-560px 36px, 120px 42px', '-610px 18px, 150px 24px', '-650px 30px, 175px 36px', '-700px -120px, 210px -112px']), F)
+      .add(() => { gsap.set('#matchaLiquid', { display: 'none' }); gsap.set(['#matcha','#cloudWord'], { clearProps: 'color,opacity' }); }, F + 2.02)
+    // tea leaves drift around the glass as the scene settles
+      .call(() => { if (!skipLeaves) startLeaves(); }, null, T + 2.65)
+      .to(['#nav','#topR','#logo','#burger'], { opacity: 1, duration: .9, ease: 'sine.out', stagger: .06 }, Y + .45)
+      .to(['#loc','#info'], { opacity: 1, y: 0, duration: .8, ease: 'power2.out', stagger: .12 }, Y + .75)
+      .to('#soon', { opacity: 1, y: 0, duration: .7, ease: 'power2.out' }, Y + 1.0)
+      .to('.div', { scaleY: 1, duration: .5, ease: 'power2.out', stagger: .1 }, Y + 1.2)
+      .to('.cu .n', { opacity: 1, y: 0, duration: .75, ease: 'power3.out', stagger: .1 }, Y + 1.2)
+      .to('.cu .u', { opacity: 1, y: 0, duration: .6, ease: 'power2.out', stagger: .1 }, Y + 1.3)
+      .to('#btn', { clipPath: 'inset(0 0% 0 0 round 100px)', duration: .85, ease: 'power3.inOut' }, Y + 1.45)
+      .to('#btn span', { opacity: 1, duration: .4, ease: 'sine.out' }, Y + 1.85)
+      .to('#btn svg', { x: 0, opacity: 1, duration: .7, ease: 'power3.out' }, Y + 2.05);
+    return tl;
+  }
+
+  /* ---------- ambient life after the hero settles ---------- */
+  /* ---------- hover: matcha liquid inside the headline ----------
+     After the entrance, pointing at (or focusing) "matcha" pours a lighter matcha liquid into the letters;
+     while the pointer stays, the surface keeps flowing and gently rising and falling. On leave it drains. */
+  const HOVER_LIQ = liquid('#a9c962', '#5f8a2a', '#d6e8a8', '#7da33a');
+  const lq = { x1: -560, y: 220, x2: 120 };
+  const paintLq = () => { mL.style.backgroundPosition = `${lq.x1}px ${lq.y}px, ${lq.x2}px ${lq.y + 6}px`; };
+  let hoverReady = false, hovering = false, flowTw = null, bobTw = null, levelTw = null;
+  function liquidIn(){
+    if (!hoverReady || hovering) return; hovering = true;
+    mL.style.backgroundImage = HOVER_LIQ; gsap.set(mL, { display: 'block', opacity: 1 });
+    if (levelTw) levelTw.kill();
+    levelTw = gsap.to(lq, { y: 70, duration: .9, ease: 'power2.out', onUpdate: paintLq });
+    if (!flowTw) flowTw = gsap.to(lq, { x1: '-=420', x2: '+=420', duration: 2.6, ease: 'none', repeat: -1, onUpdate: paintLq });
+    flowTw.play();
+    if (!bobTw) bobTw = gsap.to(lq, { y: '+=14', duration: 1.3, ease: 'sine.inOut', yoyo: true, repeat: -1, paused: true });
+    gsap.delayedCall(.9, () => { if (hovering) bobTw.play(); });
+  }
+  function liquidOut(){
+    if (!hovering) return; hovering = false;
+    if (bobTw) bobTw.pause();
+    if (levelTw) levelTw.kill();
+    levelTw = gsap.to(lq, { y: 230, duration: .75, ease: 'power2.in', onUpdate: paintLq, onComplete: () => {
+      if (hovering) return; if (flowTw) flowTw.pause(); gsap.set(mL, { display: 'none' }); } });
+  }
+  const mMask = document.getElementById('matchaMask');
+  mMask.addEventListener('pointerenter', liquidIn); mMask.addEventListener('pointerleave', liquidOut);
+  mMask.addEventListener('focus', liquidIn); mMask.addEventListener('blur', liquidOut);
+
+  /* ---------- fine matcha dust drifting through the navigation band ---------- */
+  (() => {
+    const cv = document.getElementById('navDust'); if (!cv || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const g = cv.getContext('2d'), W = cv.width, H = cv.height, cols = ['#6f9a33','#86ad44','#5f8a2a','#9cbf55'];
+    const D = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: .5 + Math.random() * 1.3,
+      vx: .08 + Math.random() * .22, ph: Math.random() * 6.28, a: .25 + Math.random() * .5, c: cols[(Math.random() * 4) | 0] }));
+    let t0 = performance.now();
+    (function tick(now){
+      const dt = Math.min(50, now - t0); t0 = now; g.clearRect(0, 0, W, H);
+      for (const d of D){
+        d.x += d.vx * dt / 16; d.ph += dt * .0012; if (d.x > W + 4) { d.x = -4; d.y = Math.random() * H; }
+        const y = d.y + Math.sin(d.ph) * 4;
+        g.globalAlpha = d.a * (.6 + .4 * Math.sin(d.ph * 1.7)); g.fillStyle = d.c;
+        g.beginPath(); g.arc(d.x, y, d.r, 0, 6.283); g.fill();
+      }
+      requestAnimationFrame(tick);
+    })(t0);
+  })();
+
+  function ambient(){
+    hoverReady = true;
+    $('#replay').classList.add('on');
+    gsap.to('.mist', { opacity: .55, duration: 2.5, ease: 'sine.inOut' });
+    gsap.to('#mist1', { x: 260, duration: 26, ease: 'sine.inOut', repeat: -1, yoyo: true });
+    gsap.to('#mist2', { x: -220, duration: 31, ease: 'sine.inOut', repeat: -1, yoyo: true });
+    gsap.to('#sun i', { opacity: .62, scale: 1.06, duration: 5.5, ease: 'sine.inOut', repeat: -1, yoyo: true });
+    gsap.to('#leaves', { rotation: .7, duration: 3.6, ease: 'sine.inOut', repeat: -1, yoyo: true });
+    gsap.to('#leaf2', { rotation: -.9, duration: 4.3, ease: 'sine.inOut', repeat: -1, yoyo: true, delay: .8 });
+    gsap.to('#lanternGlow', { opacity: .75, duration: 2.8, ease: 'sine.inOut', repeat: -1, yoyo: true });
+    // light sweeping across the glass and the stone
+    gsap.fromTo('#cupSheen', { backgroundPosition: '-120% 0', opacity: .7 },
+      { backgroundPosition: '220% 0', duration: 2.6, ease: 'power1.inOut', repeat: -1, repeatDelay: 5.5, delay: .4 });
+    gsap.fromTo('#stoneSheen', { backgroundPosition: '-60% 0', opacity: .45 },
+      { backgroundPosition: '160% 0', duration: 4, ease: 'sine.inOut', repeat: -1, repeatDelay: 7, delay: 2.2 });
+    // condensation beads slipping down the cup
+    dropEls.forEach((d, i) => {
+      const run = () => gsap.fromTo(d, { y: 0, opacity: 0, scale: .6 + Math.random()*.5 },
+        { keyframes: [{ opacity: .9, duration: .6 }, { y: 30 + Math.random()*60, duration: 4 + Math.random()*4, ease: 'power1.in' }, { opacity: 0, duration: .5 }],
+          delay: Math.random()*5, onComplete: run });
+      gsap.delayedCall(i*.6, run);
+    });
+  }
+
+  /* ---------- run ---------- */
+  let started = false;
+  function goFinal(){ reset(); stopSeq(); ran = true; skipLeaves = true; const tl = transition(); tl.progress(1); swingT0 = performance.now() - 20000; }
+  /* ---------- intro playback ----------
+     The film is tried first (muted + inline). If the browser doesn't actually start it within ~1.2 s
+     (iOS Low Power Mode, autoplay policies inside embedded frames, a stalled download, an unsupported
+     source), the same intro plays from a 20 fps frame sequence on a canvas, which needs no autoplay
+     permission. Either way the full sequence plays once and then hands over to the hero. */
+  const seqCv = $('#seqCv'), seqCtx = seqCv.getContext('2d');
+  const SEQS = { m: { dir: 'img/seqm2/', w: 930, h: 1290, n: 121, fps: 24, imgs: [] }, d: { dir: 'img/seq/', w: 960, h: 540, n: 101, fps: 20, imgs: [] } };
+  let SEQ_N = 101, SEQ_FPS = 20;
+  let seqImgs = SEQS.d.imgs; let seqOn = false, seqRaf = 0, watchdog = 0;
+  function loadSeq(){
+    const set = LAYOUT.m ? SEQS.m : SEQS.d; seqImgs = set.imgs; SEQ_N = set.n; SEQ_FPS = set.fps;
+    if (seqCv.width !== set.w) { seqCv.width = set.w; seqCv.height = set.h; }
+    if (seqImgs.length) return;
+    for (let i = 0; i < SEQ_N; i++) { const im = new Image(); im.decoding = 'async';
+      im.onerror = () => { im.failed = true; }; im.src = `${set.dir}${String(i).padStart(3, '0')}.webp`; seqImgs.push(im); }
+  }
+  const frameReady = im => im.failed || (im.complete && im.naturalWidth > 0);
+  function playSeq(fromTime){
+    if (seqOn || ran) return; seqOn = true; clearTimeout(watchdog); loadSeq();
+    try { vid.pause(); } catch(e) {}
+    let shown = -1, t0 = performance.now() - (fromTime || 0) * 1000;
+    const step = now => {
+      if (!seqOn) return;
+      let f = Math.max(0, Math.min(SEQ_N - 1, Math.floor((now - t0) / 1000 * SEQ_FPS)));
+      if (!frameReady(seqImgs[f])) {                    // still downloading: hold the last frame, don't skip ahead
+        if (shown >= 0) t0 = now - (shown / SEQ_FPS) * 1000;
+        seqRaf = nextFrame(step); return;
+      }
+      if (f !== shown) {
+        seqCtx.clearRect(0, 0, seqCv.width, seqCv.height);
+        if (!seqImgs[f].failed) seqCtx.drawImage(seqImgs[f], 0, 0, seqCv.width, seqCv.height);
+        if (shown < 0) gsap.set('#seqCv', { opacity: 1 }), gsap.set(['#vid','#first'], { opacity: 0 });
+        shown = f;
+      }
+      if (f >= SEQ_N - 1) { seqOn = false; runOnce(); return; }
+      seqRaf = nextFrame(step);
+    };
+    seqRaf = nextFrame(step);
+  }
+  function stopSeq(){ seqOn = false; cancelAnimationFrame(seqRaf); clearTimeout(seqRaf); gsap.set('#seqCv', { opacity: 0 });
+    seqCtx.clearRect(0, 0, seqCv.width, seqCv.height); }
+  function play(){
+    fit();                                               // decide phone vs desktop from the size *now*
+    reset(); ran = false; stopSeq(); clearTimeout(watchdog);
+    if (LAYOUT.m) {
+      // phones: the floating cut-out cup sequence is the intro (no video, so no autoplay rules apply).
+      // Start once the first ~30 frames are in (or after 3 s); later frames stream in while it plays.
+      loadSeq(); const t0 = performance.now();
+      const go = () => { if (ran || seqOn) return;
+        const n = seqImgs.filter(frameReady).length;
+        if (n >= 30 || performance.now() - t0 > 3000) playSeq(0); else setTimeout(go, 100); };
+      go(); return;
+    }
+    gsap.set('#vid', { opacity: 1 });
+    try { vid.muted = true; vid.defaultMuted = true; vid.playsInline = true; vid.currentTime = 0; } catch(e) {}
+    let p; try { p = vid.play(); } catch(e) { p = Promise.reject(e); }
+    if (p && p.catch) p.catch(() => playSeq(0));
+    watchdog = setTimeout(() => { if (!(vid.currentTime > 0 && !vid.paused)) playSeq(0); }, 1200);
+  }
+  let ran = false;   // the transition runs once per play-through
+  const runOnce = () => { if (ran) return; ran = true; clearTimeout(watchdog); window.__cm.tl = transition(); };
+  vid.addEventListener('ended', () => { if (!seqOn && !LAYOUT.m) runOnce(); });
+  vid.addEventListener('error', () => { if (!LAYOUT.m) playSeq(0); });
+  let stallT = 0;      // a mid-film stall longer than 2.5 s continues from the same moment on the canvas
+  vid.addEventListener('waiting', () => { clearTimeout(stallT); stallT = setTimeout(() => { if (!vid.ended && !ran) playSeq(vid.currentTime); }, 2500); });
+  vid.addEventListener('playing', () => clearTimeout(stallT));
+  $('#tap').addEventListener('click', () => { $('#tap').hidden = true; play(); });
+  vid.addEventListener('playing', () => gsap.set('#first', { opacity: 0 }));
+  $('#replay').addEventListener('click', play);
+
+  // Start as soon as the intro's own first frame, its background and the fonts are ready. The rest of the
+  // hero decodes while the film plays. (Waiting for 'canplaythrough' left iPhones on a blank screen:
+  // iOS does not buffer video before play() is called.)
+  // (img.decode() can stay pending forever in embedded/throttled previews, so use load events + a hard cap)
+  const loaded = src => new Promise(r => { const i = new Image(); i.onload = i.onerror = r; i.src = src; });
+  const ready = Promise.all(LAYOUT.m ? [loaded('img/mIntroBg2.webp'), loaded('img/seqm2/000.webp'), document.fonts ? document.fonts.ready : 0]
+                                      : [loaded('img/first.jpg'), loaded('img/plate.jpg'), document.fonts ? document.fonts.ready : 0]);
+  Promise.race([ready, new Promise(r => setTimeout(r, 2500))]).then(() => {
+    if (started) return; started = true;
+    if (reduce || location.hash === '#final') goFinal(); else play();
+  });
+  window.__cm = { reset, transition, goFinal, vid, startLeaves };
+})();
+</script>
+<script>
+/* ---------- matcha powder cursor ----------
+   A soft grainy matcha mound follows the pointer; moving it sheds fine powder specks that drift,
+   settle a little under gravity and fade. Over links/buttons the mound opens into a dusty ring;
+   a click puffs out a small burst. Touch screens keep their native behaviour (a short powder
+   trail follows the finger). */
+(() => {
+  const cv = document.getElementById('powder'), ctx = cv.getContext('2d');
+  const fine = matchMedia('(hover: hover) and (pointer: fine)');
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const COLS = ['#4f7420','#5f8a2a','#6f9a33','#86ad44','#9cbf55','#3f5f18'];
+  let W = 0, H = 0, dpr = 1;
+  function size(){ dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); }
+  addEventListener('resize', size); size();
+
+  const P = []; const MAX = 900;
+  function spawn(x, y, n, spread, speed){
+    for (let i = 0; i < n && P.length < MAX; i++){
+      const a = Math.random() * Math.PI * 2, v = Math.random() * speed;
+      P.push({ x: x + (Math.random() - .5) * spread, y: y + (Math.random() - .5) * spread,
+        vx: Math.cos(a) * v, vy: Math.sin(a) * v - .1, r: .5 + Math.random() * Math.random() * 2.1,
+        c: COLS[(Math.random() * COLS.length) | 0], life: 0, max: 700 + Math.random() * 900, g: .012 + Math.random() * .02 });
+    }
+  }
+  // pointer state
+  let mx = -100, my = -100, cx = -100, cy = -100, lx = null, ly = null, over = 0, overT = 0, down = 0, seen = false;
+  const isHot = el => !!(el && el.closest && el.closest('a,button,[role="button"]'));
+  addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') { if (!still) spawn(e.clientX, e.clientY, 3, 10, .5); return; }
+    mx = e.clientX; my = e.clientY;
+    if (!seen) { cx = mx; cy = my; seen = true; }
+    overT = isHot(e.target) ? 1 : 0;
+    if (lx !== null && !still){
+      const d = Math.hypot(mx - lx, my - ly), n = Math.min(14, Math.floor(d / 4));
+      for (let i = 0; i < n; i++){ const t = i / n; spawn(lx + (mx - lx) * t, ly + (my - ly) * t, 1, 6, .35 + d * .004); }
+    }
+    lx = mx; ly = my;
+  }, { passive: true });
+  addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') { down = 1; if (!still) spawn(e.clientX, e.clientY, 34, 4, 2.4); } });
+  addEventListener('pointerup', () => { down = 0; });
+  document.addEventListener('pointerleave', () => { seen = false; lx = null; cx = cy = mx = my = -100; });
+  document.addEventListener('mouseout', e => { if (!e.relatedTarget) { seen = false; lx = null; cx = cy = mx = my = -100; } });
+
+  // a grainy mound sprite for the cursor head
+  const head = document.createElement('canvas'), hs = 48; head.width = head.height = hs * 2;
+  (() => { const g = head.getContext('2d'); g.scale(2, 2);
+    const rg = g.createRadialGradient(hs/2 - 3, hs/2 - 4, 1, hs/2, hs/2, 9);
+    rg.addColorStop(0, '#a7c75e'); rg.addColorStop(.55, '#6f9a33'); rg.addColorStop(1, 'rgba(63,95,24,0)');
+    g.fillStyle = rg; g.beginPath(); g.arc(hs/2, hs/2, 9, 0, 7); g.fill();
+    for (let i = 0; i < 140; i++){ const a = Math.random() * 7, r = Math.sqrt(Math.random()) * 9;
+      g.fillStyle = COLS[(Math.random() * COLS.length) | 0]; g.globalAlpha = .55 + Math.random() * .45;
+      g.fillRect(hs/2 + Math.cos(a) * r, hs/2 + Math.sin(a) * r, .9, .9); }
+  })();
+
+  let last = performance.now(), ring = 0, press = 0;
+  function frame(now){
+    const dt = Math.min(48, now - last); last = now;
+    ctx.clearRect(0, 0, W, H);
+    // powder specks
+    for (let i = P.length - 1; i >= 0; i--){
+      const p = P[i]; p.life += dt;
+      if (p.life > p.max){ P.splice(i, 1); continue; }
+      p.vx *= .985; p.vy = p.vy * .985 + p.g * dt / 16; p.x += p.vx * dt / 16; p.y += p.vy * dt / 16;
+      const k = 1 - p.life / p.max;
+      ctx.globalAlpha = Math.min(1, k * 1.6) * .9; ctx.fillStyle = p.c;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (.6 + .4 * k), 0, 6.283); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // cursor head
+    if (fine.matches && seen){
+      cx += (mx - cx) * Math.min(1, dt / 40); cy += (my - cy) * Math.min(1, dt / 40);
+      ring += (overT - ring) * Math.min(1, dt / 90); press += (down - press) * Math.min(1, dt / 60);
+      const sc = (1 - ring * .45) * (1 - press * .25);
+      ctx.save(); ctx.globalAlpha = 1 - ring * .35;
+      ctx.drawImage(head, mx - hs/2 * sc, my - hs/2 * sc, hs * sc, hs * sc); ctx.restore();
+      if (ring > .02){   // dusty ring that opens around links and buttons
+        const R = 6 + ring * 18 - press * 4;
+        ctx.save(); ctx.globalAlpha = ring * .85; ctx.strokeStyle = '#6f9a33'; ctx.lineWidth = 1.4;
+        ctx.setLineDash([2, 3]); ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.stroke(); ctx.restore();
+      }
+      // a few grains always fall from the mound, even when it rests
+      if (!still && Math.random() < dt / 120) spawn(mx, my + 3, 1, 6, .15);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  const sync = () => document.documentElement.classList.toggle('pc', fine.matches);
+  fine.addEventListener ? fine.addEventListener('change', sync) : 0; sync();
+})();
+</script>
+
+
+</body>
+</html>
