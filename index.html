@@ -336,9 +336,9 @@ html:not(.m) .leftfade{left:calc(-1 * var(--ox,0px));width:calc(1180px + var(--o
 /* decor used sparingly: roof + lantern smaller, framing the drink from the top right */
 html:not(.m) #roofG{left:auto;right:calc(-1 * var(--ox,0px));top:58px}
 html:not(.m) #roofS{transform-origin:50% 0;transform:translate(128px,0) scale(-.62,.62)}
-html:not(.m) #cupBox{left:calc(1047px + var(--ox,0px));top:470px}
+html:not(.m) #cupBox{left:calc(999px + var(--ox,0px));top:337px}
 html:not(.m) #shadow{left:calc(1244px + var(--ox,0px));top:1002px}
-html:not(.m) #shadow .s1{left:-136px;width:272px}html:not(.m) #shadow .s2{left:-86px;width:172px}
+
 
 /* phones: same type system, sizes for the 940-px stage */
 html.m #soon{font-size:26px;letter-spacing:.14em;color:var(--paper)}
@@ -349,6 +349,35 @@ html.m #loc{font-size:24px}html.m #loc b{font-size:24px}html.m #loc span{font-si
 html.m #info{flex-direction:column;align-items:flex-end;gap:10px;font-size:24px}
 html.m #info span+span::before{content:none}
 html.m #cloudG{transform:scale(.682)}
+/* ===== revision 2: bigger drink, small text on a grid, live countdown, quieter roof ===== */
+/* small text: eyebrow above the title, location as the footer line of the same column */
+html:not(.m) #bl{top:672px}
+html:not(.m) #loc{left:calc(98px - var(--ox,0px));top:auto;bottom:64px;flex-direction:row;gap:14px;align-items:center}
+html:not(.m) #loc b::after{content:"";display:inline-block;width:28px;height:1px;background:currentColor;opacity:.6;margin-left:14px;vertical-align:middle}
+#loc,#info{line-height:1}
+/* countdown: larger numerals that roll like an odometer; dividers fill like liquid as time passes */
+.cu .n{font-size:64px;line-height:1;display:inline-flex;font-variant-numeric:tabular-nums}
+.cu .n .dg{display:inline-block;height:1em;overflow:hidden}
+.cu .n .col{display:flex;flex-direction:column;will-change:transform}
+.cu .n .col i{font-style:normal;height:1em;line-height:1;display:block;text-align:center}
+.cu .u{font-size:13px}
+html:not(.m) .cu{align-items:flex-start}html:not(.m) .cu:first-child .u{align-self:auto}
+#count{gap:34px;align-items:flex-start}
+.div{position:relative;width:2px;height:62px;margin-top:4px;opacity:1;background:rgba(34,58,22,.14);border-radius:2px;overflow:hidden}
+.div::after{content:"";position:absolute;left:0;right:0;bottom:0;height:100%;background:var(--matcha);border-radius:2px;transform-origin:50% 100%;transform:scaleY(var(--p,0));transition:transform .9s cubic-bezier(.3,.7,.3,1)}
+.div.tick::before{content:"";position:absolute;inset:-6px;background:radial-gradient(closest-side,rgba(123,160,60,.5),transparent);animation:cdTick .9s ease-out}
+@keyframes cdTick{from{opacity:1}to{opacity:0}}
+#soon::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin-right:12px;vertical-align:1px;animation:cdLive 2s ease-in-out infinite}
+@keyframes cdLive{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.6)}}
+html.m .cu .n{font-size:70px}
+html.m .div{background:rgba(246,239,218,.25);height:68px}
+html.m .div::after{background:var(--paper)}
+/* roof: muted ink-wash so it frames rather than competes; the lantern keeps its warmth as the only accent */
+#roof{filter:saturate(.3) sepia(.12) brightness(1.1) contrast(.82);opacity:.5;
+  -webkit-mask-image:linear-gradient(200deg,#000 25%,rgba(0,0,0,.35) 70%,transparent 100%);mask-image:linear-gradient(200deg,#000 25%,rgba(0,0,0,.35) 70%,transparent 100%)}
+html.m #roof{opacity:.62}
+html.m #cupBox{left:215px;top:calc(613px + var(--dy))}
+html.m #shadow .s1{left:-177px;width:354px}html.m #shadow .s2{left:-113px;width:226px}
 </style>
 </head>
 <body>
@@ -395,11 +424,11 @@ html.m #cloudG{transform:scale(.682)}
       <div class="ui" id="bl">
         <p id="soon">Opening soon</p>
         <div id="count">
-          <div class="cu"><span class="n">12</span><span class="u">days</span></div>
+          <div class="cu"><span class="n" data-k="d">12</span><span class="u">days</span></div>
           <span class="div"></span>
-          <div class="cu"><span class="n">08</span><span class="u">hours</span></div>
+          <div class="cu"><span class="n" data-k="h">08</span><span class="u">hours</span></div>
           <span class="div"></span>
-          <div class="cu"><span class="n">12</span><span class="u">Minutes</span></div>
+          <div class="cu"><span class="n" data-k="m">12</span><span class="u">Minutes</span></div>
         </div>
         <a id="btn" href="#book"><span class="d">Book a spot</span><span class="mo">Book a spot</span><svg viewBox="0 0 40 40" fill="none" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.49776 19.9991C2.49776 19.6676 2.62946 19.3497 2.86388 19.1153C3.0983 18.8808 3.41624 18.7491 3.74776 18.7491H33.2303L25.3628 10.8841C25.2465 10.7679 25.1544 10.6299 25.0915 10.4781C25.0286 10.3262 24.9962 10.1635 24.9962 9.99914C24.9962 9.83478 25.0286 9.67203 25.0915 9.52018C25.1544 9.36833 25.2465 9.23036 25.3628 9.11414C25.479 8.99792 25.617 8.90573 25.7688 8.84283C25.9207 8.77993 26.0834 8.74756 26.2478 8.74756C26.4121 8.74756 26.5749 8.77993 26.7267 8.84283C26.8786 8.90573 27.0165 8.99792 27.1328 9.11414L37.1328 19.1141C37.2492 19.2303 37.3415 19.3682 37.4045 19.5201C37.4676 19.6719 37.5 19.8347 37.5 19.9991C37.5 20.1636 37.4676 20.3264 37.4045 20.4782C37.3415 20.6301 37.2492 20.768 37.1328 20.8841L27.1328 30.8841C27.0165 31.0004 26.8786 31.0925 26.7267 31.1554C26.5749 31.2183 26.4121 31.2507 26.2478 31.2507C26.0834 31.2507 25.9207 31.2183 25.7688 31.1554C25.617 31.0925 25.479 31.0004 25.3628 30.8841C25.2465 30.7679 25.1544 30.6299 25.0915 30.4781C25.0286 30.3262 24.9962 30.1635 24.9962 29.9991C24.9962 29.8348 25.0286 29.672 25.0915 29.5202C25.1544 29.3683 25.2465 29.2304 25.3628 29.1141L33.2303 21.2491H3.74776C3.41624 21.2491 3.0983 21.1174 2.86388 20.883C2.62946 20.6486 2.49776 20.3307 2.49776 19.9991Z" fill="#fff"/></svg></a>
       </div>
@@ -535,13 +564,13 @@ html.m #cloudG{transform:scale(.682)}
   /* ---------- geometry (stage px) ---------- */
   // cup as it stands at the end of the video, measured on the last frame
   // the cup as it stands at the end of the video (measured on the last frame, video px), relative to its final box
-  const CUP_FS = .8;   // final desktop cup scale: the drink balances the title instead of dominating it
+  const CUP_FS = 1, CUP_FM = 1.18;   // final cup scale (desktop / phone): the drink is the hero next to the title
   function cup0(){
     if (!LAYOUT.m) { const kv = LAYOUT.kv, l = 606*kv + LAYOUT.dvx, t = 70*kv + LAYOUT.dvy;
-      return { x: l - (1047 + LAYOUT.ox), y: t - 470, s: 683*kv/489 }; }
+      return { x: l - (999 + LAYOUT.ox), y: t - 337, s: 683*kv/489 }; }
     // measured fit of the hero cup image to the film's last frame: 693.2 px wide at (607.4, 69.4) film px
     const k = LAYOUT.k, l = 607.4*k + LAYOUT.vx, t = 69.4*k + LAYOUT.vy;
-    return { x: l - 253, y: t - (719 + LAYOUT.dy), s: 693.2*k / 435 };
+    return { x: l - 215, y: t - (613 + LAYOUT.dy), s: 693.2*k / 435 };
   }
 
   /* ---------- headline liquid textures ----------
@@ -730,7 +759,7 @@ html.m #cloudG{transform:scale(.682)}
     const L = T + .05, CD = 2.25;
     tl.to('#cupBox', { x: 0, duration: CD, ease: 'power2.inOut' }, L)
       .to('#cupBox', { y: -7, duration: CD, ease: 'power3.inOut' }, L)
-      .to('#cupBox', { scale: LAYOUT.m ? 1 : CUP_FS, duration: CD, ease: 'power2.inOut' }, L)
+      .to('#cupBox', { scale: LAYOUT.m ? CUP_FM : CUP_FS, duration: CD, ease: 'power2.inOut' }, L)
       .to('#cupIn',  { rotation: -2.2, duration: CD*.5, ease: 'sine.inOut' }, L)
       .to('#cupIn',  { rotation: 0, duration: CD*.5, ease: 'sine.inOut' }, L + CD*.5)
       // contact + settle
@@ -763,6 +792,7 @@ html.m #cloudG{transform:scale(.682)}
       .to('#soon', { opacity: 1, y: 0, duration: .7, ease: 'power2.out' }, Y + 1.0)
       .to('.div', { scaleY: 1, duration: .5, ease: 'power2.out', stagger: .1 }, Y + 1.2)
       .to('.cu .n', { opacity: 1, y: 0, duration: .75, ease: 'power3.out', stagger: .1 }, Y + 1.2)
+      .call(() => window.cdRollIn && window.cdRollIn(), null, Y + 1.2)
       .to('.cu .u', { opacity: 1, y: 0, duration: .6, ease: 'power2.out', stagger: .1 }, Y + 1.3)
       .to('#btn', { clipPath: 'inset(0 0% 0 0 round 100px)', duration: .85, ease: 'power3.inOut' }, Y + 1.45)
       .to('#btn span', { opacity: 1, duration: .4, ease: 'sine.out' }, Y + 1.85)
@@ -1037,6 +1067,49 @@ html.m #cloudG{transform:scale(.682)}
 })();
 </script>
 
+
+<script>
+/* Live countdown: odometer digits + divider "fill" showing progress to the next unit change. */
+(() => {
+  const OPEN_AT = Date.parse('2026-11-08T17:00:00Z');   // opening: 8 Nov 2026, 19:00 Kyiv
+  const els = {}; document.querySelectorAll('.cu .n').forEach(n => {
+    els[n.dataset.k] = n;
+    n.setAttribute('aria-live','off');
+    n.innerHTML = '<span class="dg"><span class="col">'+[...Array(10).keys()].map(d=>'<i>'+d+'</i>').join('')+'</span></span>'
+                + '<span class="dg"><span class="col">'+[...Array(10).keys()].map(d=>'<i>'+d+'</i>').join('')+'</span></span>';
+  });
+  const divs = document.querySelectorAll('#count .div');   // [days|hours] fills by minutes, [hours|minutes] fills by seconds
+  const left = () => Math.max(0, OPEN_AT - Date.now());
+  const parts = ms => { const s = Math.floor(ms/1000); return { d: Math.min(99, Math.floor(s/86400)), h: Math.floor(s%86400/3600), m: Math.floor(s%3600/60), s: s%60 }; };
+  const pad = v => String(v).padStart(2,'0');
+  let shown = null, live = false;
+  function setDigits(k, v, dur, delay){
+    const cols = els[k].querySelectorAll('.col'); const t = pad(v);
+    cols.forEach((c, i) => {
+      const y = -(+t[i]) + 'em';
+      if (window.gsap && dur) gsap.to(c, { y, duration: dur, delay: (delay||0) + i*.08, ease: dur > .8 ? 'expo.out' : 'back.out(1.6)' });
+      else c.style.transform = 'translateY(' + y + ')';
+    });
+    els[k].setAttribute('aria-label', t);
+  }
+  function update(){
+    const p = parts(left());
+    if (live) ['d','h','m'].forEach(k => { if (!shown || shown[k] !== p[k]) setDigits(k, p[k], .7); });
+    if (divs[1]) divs[1].style.setProperty('--p', ((p.s ? 60 - p.s : 0) / 60).toFixed(3));
+    if (divs[0]) divs[0].style.setProperty('--p', ((60 - p.m) % 60 / 60).toFixed(3));
+    if (live && shown && shown.m !== p.m && divs[1]) { divs[1].classList.remove('tick'); void divs[1].offsetWidth; divs[1].classList.add('tick'); }
+    if (live) shown = p;
+  }
+  ['d','h','m'].forEach(k => setDigits(k, 0));
+  window.cdRollIn = () => {                    // slot-machine entrance: each unit spins up to the real value
+    const p = parts(left()); ['d','h','m'].forEach(k => setDigits(k, 0));
+    ['d','h','m'].forEach((k, i) => setDigits(k, p[k], 1.4 + i*.25, .05 + i*.12));
+    shown = p; live = true;
+  };
+  update(); setInterval(update, 1000);
+  if (location.hash === '#final') setTimeout(() => { if (!live) window.cdRollIn(); }, 50);
+})();
+</script>
 
 </body>
 </html>
