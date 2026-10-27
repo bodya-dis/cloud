@@ -372,12 +372,36 @@ html:not(.m) .cu{align-items:flex-start}html:not(.m) .cu:first-child .u{align-se
 html.m .cu .n{font-size:70px}
 html.m .div{background:rgba(246,239,218,.25);height:68px}
 html.m .div::after{background:var(--paper)}
-/* roof: muted ink-wash so it frames rather than competes; the lantern keeps its warmth as the only accent */
-#roof{filter:saturate(.3) sepia(.12) brightness(1.1) contrast(.82);opacity:.5;
-  -webkit-mask-image:linear-gradient(200deg,#000 25%,rgba(0,0,0,.35) 70%,transparent 100%);mask-image:linear-gradient(200deg,#000 25%,rgba(0,0,0,.35) 70%,transparent 100%)}
-html.m #roof{opacity:.62}
+
 html.m #cupBox{left:215px;top:calc(613px + var(--dy))}
 html.m #shadow .s1{left:-177px;width:354px}html.m #shadow .s2{left:-113px;width:226px}
+/* ===== revision 3: centred composition on one vertical axis (lantern · sun · cup · stone) ===== */
+html:not(.m) #cupBox{left:calc(740px + var(--ox,0px));top:404px}
+html:not(.m) #shadow{left:calc(960px + var(--ox,0px))}
+html:not(.m) #shadow .s1{left:-153px;width:306px}html:not(.m) #shadow .s2{left:-97px;width:194px}
+/* headline: centred, stacked, both words the same size */
+html:not(.m) #info{left:960px;top:118px;transform:translateX(-50%)}
+html:not(.m) #matchaMask{left:960px;top:152px;transform:translateX(calc(-50% + 15px)) scale(.7);transform-origin:50% 0}
+html:not(.m) #cloudG{left:960px;top:258px;transform:translateX(-50%) scale(.663);transform-origin:50% 0}
+/* soft cream light behind the headline instead of the old left fade */
+html:not(.m) .leftfade{left:calc(-1 * var(--ox,0px));width:calc(1920px + 2 * var(--ox,0px));height:640px;
+  background:radial-gradient(ellipse 46% 62% at 50% 34%,rgba(247,241,220,.92),rgba(247,241,220,.6) 55%,rgba(247,241,220,0) 100%)}
+/* the rest sits symmetrically either side of the cup */
+html:not(.m) #bl{left:0;width:1920px;top:640px;display:grid;grid-template-columns:1fr 560px 1fr;row-gap:22px;align-items:end}
+html:not(.m) #soon{grid-column:1;grid-row:1;justify-self:end}
+html:not(.m) #count{grid-column:1;grid-row:2;justify-self:end}
+html:not(.m) #btn{grid-column:3;grid-row:2;justify-self:start}
+html:not(.m) #loc{left:1266px;top:618px;bottom:auto;flex-direction:column;align-items:flex-start;gap:8px}
+html:not(.m) #loc b::after{content:none}
+/* roof: no longer a faded photo but a crisp ink silhouette of the eaves, mirrored in both top corners
+   like a view from under a tea-house roof; the lantern keeps its colour and glow */
+html:not(.m) #roofG{top:calc(92px - var(--oy,0px))}
+html:not(.m) #roofS{transform:translate(168.75px,0) scale(-.5,.5)}
+html:not(.m) #roof{visibility:hidden}
+html:not(.m) #roofS::before,html:not(.m) #roofG::before{content:"";position:absolute;background:var(--ink);opacity:.82;
+  -webkit-mask:url(img/roof.png) 0 0/100% 100% no-repeat;mask:url(img/roof.png) 0 0/100% 100% no-repeat}
+html:not(.m) #roofS::before{left:0;top:0;width:675px;height:747px}
+html:not(.m) #roofG::before{left:calc(-1245px - 2 * var(--ox,0px));top:0;width:337.5px;height:373.5px}
 </style>
 </head>
 <body>
@@ -564,10 +588,10 @@ html.m #shadow .s1{left:-177px;width:354px}html.m #shadow .s2{left:-113px;width:
   /* ---------- geometry (stage px) ---------- */
   // cup as it stands at the end of the video, measured on the last frame
   // the cup as it stands at the end of the video (measured on the last frame, video px), relative to its final box
-  const CUP_FS = 1, CUP_FM = 1.18;   // final cup scale (desktop / phone): the drink is the hero next to the title
+  const CUP_FS = .9, CUP_FM = 1.18;   // final cup scale (desktop / phone): the drink is the hero next to the title
   function cup0(){
     if (!LAYOUT.m) { const kv = LAYOUT.kv, l = 606*kv + LAYOUT.dvx, t = 70*kv + LAYOUT.dvy;
-      return { x: l - (999 + LAYOUT.ox), y: t - 337, s: 683*kv/489 }; }
+      return { x: l - (740 + LAYOUT.ox), y: t - 404, s: 683*kv/489 }; }
     // measured fit of the hero cup image to the film's last frame: 693.2 px wide at (607.4, 69.4) film px
     const k = LAYOUT.k, l = 607.4*k + LAYOUT.vx, t = 69.4*k + LAYOUT.vy;
     return { x: l - 215, y: t - (613 + LAYOUT.dy), s: 693.2*k / 435 };
